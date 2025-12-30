@@ -88,7 +88,7 @@ def create_compute_parameters(resources, environment):
         if resource['resource_type'] == 'ec2':
             ec2_count += 1
             instance_type = resource.get('instance_type', 't3.medium')
-            storage_size = resource.get('storage_size', '40')
+            storage_size = str(resource.get('storage_size', '40'))  # Ensure string
             
             if ec2_count == 1:
                 params[2]["ParameterValue"] = "true"  # CreateInstance1
