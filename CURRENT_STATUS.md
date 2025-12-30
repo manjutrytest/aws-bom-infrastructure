@@ -7,6 +7,21 @@
 3. **BOM Parser**: `simple-bom-parser.py` working correctly
 4. **GitHub Workflow**: **"Deploy BOM Infrastructure (Direct)"** - CLEAN PRODUCTION WORKFLOW
 
+## 🔧 Latest Issue Fixed: S3 Invalid Tag Value
+
+**Issue**: `The TagValue you have provided is invalid` - S3 bucket creation failing
+
+**Root Cause**: 
+- S3 service was rejecting tag values containing hyphens
+- Tag value `BOM-Infrastructure` contains special characters not allowed by S3
+- AWS S3 has stricter tag value validation than other services
+
+**Solution Applied**:
+- ✅ Changed all tag values from `BOM-Infrastructure` to `BOMInfrastructure`
+- ✅ Updated all CloudFormation templates for consistency
+- ✅ Updated workflow deployment commands with corrected tag values
+- ✅ Ensured S3 service compatibility across all resources
+
 ## 🎉 SUCCESS: Web-Server-1 Deployed!
 
 **Great news**: web-server-1 has been successfully deployed! 
