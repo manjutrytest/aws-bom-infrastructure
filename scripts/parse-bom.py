@@ -75,7 +75,7 @@ class BOMParser:
     def generate_compute_parameters(self, entries: List[Dict]) -> Dict[str, Any]:
         """Generate parameters for compute stack"""
         params = {
-            'Environment': 'production',
+            'Environment': 'development',
             'NetworkStackName': 'network-stack',
             'CreateInstance1': 'false',
             'CreateInstance2': 'false',
@@ -94,7 +94,7 @@ class BOMParser:
                 instance_count += 1
                 instance_type = entry.get('instance_type', 't3.medium')
                 storage_size = int(entry.get('storage_size', 40))
-                environment = entry.get('environment', 'production')
+                environment = entry.get('environment', 'development')
                 
                 if instance_count == 1:
                     params['CreateInstance1'] = 'true'

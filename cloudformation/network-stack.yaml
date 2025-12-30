@@ -324,3 +324,21 @@ Outputs:
     Value: !If [CreateNat, !Ref NatGateway, 'Not Created']
     Export:
       Name: !Sub '${AWS::StackName}-NatGatewayId'
+
+  DefaultSecurityGroupId:
+    Description: Default Security Group ID
+    Value: !Ref DefaultSecurityGroup
+    Export:
+      Name: !Sub '${AWS::StackName}-DefaultSecurityGroupId'
+
+  InternetGatewayId:
+    Description: Internet Gateway ID
+    Value: !Ref InternetGateway
+    Export:
+      Name: !Sub '${AWS::StackName}-InternetGatewayId'
+
+  NatGatewayId:
+    Description: NAT Gateway ID
+    Value: !If [CreateNat, !Ref NatGateway, 'Not Created']
+    Export:
+      Name: !Sub '${AWS::StackName}-NatGatewayId'

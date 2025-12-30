@@ -1,12 +1,12 @@
 resource_type,resource_name,environment,stack_name,cidr_block,instance_type,storage_size,enabled,region,description
-vpc,main-vpc,production,network-stack,10.0.0.0/16,,,true,eu-north-1,Main VPC for production environment
-subnet,public-subnet-1a,production,network-stack,10.0.1.0/24,,,true,eu-north-1,Public subnet in AZ 1a
-subnet,public-subnet-1b,production,network-stack,10.0.2.0/24,,,true,eu-north-1,Public subnet in AZ 1b
-subnet,private-subnet-1a,production,network-stack,10.0.10.0/24,,,true,eu-north-1,Private subnet in AZ 1a
-subnet,private-subnet-1b,production,network-stack,10.0.20.0/24,,,true,eu-north-1,Private subnet in AZ 1b
-igw,main-igw,production,network-stack,,,,true,eu-north-1,Internet Gateway for public access
-natgw,nat-gateway-1a,production,network-stack,,,,true,eu-north-1,NAT Gateway for private subnet access
-ec2,web-server-1,production,compute-stack,,t3.medium,40,true,eu-north-1,Web server instance
-ec2,web-server-2,production,compute-stack,,t3.medium,40,false,eu-north-1,Additional web server (disabled)
-s3,app-storage-bucket,production,storage-stack,,,,true,eu-north-1,Application storage bucket
-rds,app-database,production,database-stack,,db.t3.micro,20,false,eu-north-1,Application database (disabled)
+vpc,main-vpc,development,network-stack,10.0.0.0/16,,,true,eu-north-1,Main VPC for development environment
+subnet,public-subnet-1a,development,network-stack,10.0.1.0/24,,,true,eu-north-1,Public subnet in AZ 1a
+subnet,public-subnet-1b,development,network-stack,10.0.2.0/24,,,true,eu-north-1,Public subnet in AZ 1b
+subnet,private-subnet-1a,development,network-stack,10.0.10.0/24,,,true,eu-north-1,Private subnet in AZ 1a
+subnet,private-subnet-1b,development,network-stack,10.0.20.0/24,,,true,eu-north-1,Private subnet in AZ 1b
+igw,main-igw,development,network-stack,,,,true,eu-north-1,Internet Gateway for public access
+natgw,nat-gateway-1a,development,network-stack,,,,true,eu-north-1,NAT Gateway for private subnet access
+ec2,web-server-1,development,compute-stack,,t3.medium,40,true,eu-north-1,Primary web server in AZ-a
+ec2,web-server-2,development,compute-stack,,t3.medium,40,false,eu-north-1,Secondary web server in AZ-b
+s3,app-storage-bucket,development,storage-stack,,,,true,eu-north-1,Application storage bucket
+rds,app-database,development,database-stack,,db.t3.micro,20,false,eu-north-1,Application database (disabled)
