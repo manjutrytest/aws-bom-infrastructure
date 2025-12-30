@@ -275,70 +275,52 @@ Outputs:
     Description: VPC ID
     Value: !Ref MainVPC
     Export:
-      Name: !Sub '${AWS::StackName}-${Environment}-VpcId'
+      Name: !Sub '${Environment}-VpcId'
 
   VpcCidr:
     Description: VPC CIDR Block
     Value: !Ref VpcCidr
     Export:
-      Name: !Sub '${AWS::StackName}-${Environment}-VpcCidr'
+      Name: !Sub '${Environment}-VpcCidr'
 
   PublicSubnet1aId:
     Description: Public Subnet 1a ID
     Value: !Ref PublicSubnet1a
     Export:
-      Name: !Sub '${AWS::StackName}-${Environment}-PublicSubnet1aId'
+      Name: !Sub '${Environment}-PublicSubnet1aId'
 
   PublicSubnet1bId:
     Description: Public Subnet 1b ID
     Value: !Ref PublicSubnet1b
     Export:
-      Name: !Sub '${AWS::StackName}-${Environment}-PublicSubnet1bId'
+      Name: !Sub '${Environment}-PublicSubnet1bId'
 
   PrivateSubnet1aId:
     Description: Private Subnet 1a ID
     Value: !Ref PrivateSubnet1a
     Export:
-      Name: !Sub '${AWS::StackName}-${Environment}-PrivateSubnet1aId'
+      Name: !Sub '${Environment}-PrivateSubnet1aId'
 
   PrivateSubnet1bId:
     Description: Private Subnet 1b ID
     Value: !Ref PrivateSubnet1b
     Export:
-      Name: !Sub '${AWS::StackName}-${Environment}-PrivateSubnet1bId'
+      Name: !Sub '${Environment}-PrivateSubnet1bId'
 
   DefaultSecurityGroupId:
     Description: Default Security Group ID
     Value: !Ref DefaultSecurityGroup
     Export:
-      Name: !Sub '${AWS::StackName}-${Environment}-DefaultSecurityGroupId'
+      Name: !Sub '${Environment}-DefaultSecurityGroupId'
 
   InternetGatewayId:
     Description: Internet Gateway ID
     Value: !Ref InternetGateway
     Export:
-      Name: !Sub '${AWS::StackName}-${Environment}-InternetGatewayId'
+      Name: !Sub '${Environment}-InternetGatewayId'
 
   NatGatewayId:
     Description: NAT Gateway ID
     Value: !If [CreateNat, !Ref NatGateway, 'Not Created']
     Export:
-      Name: !Sub '${AWS::StackName}-${Environment}-NatGatewayId'
-
-  DefaultSecurityGroupId:
-    Description: Default Security Group ID
-    Value: !Ref DefaultSecurityGroup
-    Export:
-      Name: !Sub '${AWS::StackName}-DefaultSecurityGroupId'
-
-  InternetGatewayId:
-    Description: Internet Gateway ID
-    Value: !Ref InternetGateway
-    Export:
-      Name: !Sub '${AWS::StackName}-InternetGatewayId'
-
-  NatGatewayId:
-    Description: NAT Gateway ID
-    Value: !If [CreateNat, !Ref NatGateway, 'Not Created']
-    Export:
-      Name: !Sub '${AWS::StackName}-NatGatewayId'
+      Name: !Sub '${Environment}-NatGatewayId'

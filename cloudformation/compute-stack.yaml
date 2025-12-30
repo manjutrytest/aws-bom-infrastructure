@@ -57,7 +57,7 @@ Resources:
     Properties:
       GroupDescription: Security group for web servers
       VpcId:
-        Fn::ImportValue: !Sub '${NetworkStackName}-${Environment}-VpcId'
+        Fn::ImportValue: !Sub '${Environment}-VpcId'
       SecurityGroupIngress:
         - IpProtocol: tcp
           FromPort: 80
@@ -86,7 +86,7 @@ Resources:
       SecurityGroupIds:
         - !Ref WebServerSecurityGroup
       SubnetId:
-        Fn::ImportValue: !Sub '${NetworkStackName}-${Environment}-PublicSubnet1aId'
+        Fn::ImportValue: !Sub '${Environment}-PublicSubnet1aId'
       BlockDeviceMappings:
         - DeviceName: /dev/xvda
           Ebs:
@@ -118,7 +118,7 @@ Resources:
       SecurityGroupIds:
         - !Ref WebServerSecurityGroup
       SubnetId:
-        Fn::ImportValue: !Sub '${NetworkStackName}-${Environment}-PublicSubnet1bId'
+        Fn::ImportValue: !Sub '${Environment}-PublicSubnet1bId'
       BlockDeviceMappings:
         - DeviceName: /dev/xvda
           Ebs:
