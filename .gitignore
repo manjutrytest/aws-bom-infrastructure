@@ -1,11 +1,13 @@
 # AWS BOM Infrastructure - Git Ignore File
 
-# Generated parameter files
-parameters/
-*.json
+# Generated parameter files (allow parameters/ but ignore sensitive outputs)
+# parameters/
+# *.json
 
 # AWS CLI output
 aws-cli-output/
+changeset-*.json
+stack-outputs/
 
 # Python
 __pycache__/

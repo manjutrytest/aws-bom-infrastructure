@@ -1,0 +1,14 @@
+[
+  {"ParameterKey": "Environment", "ParameterValue": "development"},
+  {"ParameterKey": "NetworkStackName", "ParameterValue": "network-stack"},
+  {"ParameterKey": "CreateInstance1", "ParameterValue": "true"},
+  {"ParameterKey": "CreateInstance2", "ParameterValue": "true"},
+  {"ParameterKey": "CreateInstance3", "ParameterValue": "true"},
+  {"ParameterKey": "InstanceType1", "ParameterValue": "t3.medium"},
+  {"ParameterKey": "InstanceType2", "ParameterValue": "t3.medium"},
+  {"ParameterKey": "InstanceType3", "ParameterValue": "t3.medium"},
+  {"ParameterKey": "VolumeSize1", "ParameterValue": "40"},
+  {"ParameterKey": "VolumeSize2", "ParameterValue": "40"},
+  {"ParameterKey": "VolumeSize3", "ParameterValue": "40"},
+  {"ParameterKey": "KeyPairName", "ParameterValue": ""}
+]

@@ -1,0 +1,7 @@
+[
+  {"ParameterKey": "Environment", "ParameterValue": "development"},
+  {"ParameterKey": "CreateBucket", "ParameterValue": "true"},
+  {"ParameterKey": "EnableVersioning", "ParameterValue": "true"},
+  {"ParameterKey": "EnableEncryption", "ParameterValue": "true"},
+  {"ParameterKey": "BucketName", "ParameterValue": "bom-app-storage-development-a1b2c3d4"}
+]
