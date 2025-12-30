@@ -7,46 +7,34 @@
 3. **BOM Parser**: `simple-bom-parser.py` working correctly
 4. **GitHub Workflow**: **"Deploy BOM Infrastructure (Direct)"** - CLEAN PRODUCTION WORKFLOW
 
-## 🔧 Latest Issue Fixed: ROLLBACK_COMPLETE Stack State
+## 🎉 SUCCESS: Web-Server-1 Deployed!
 
-**Issue**: `Stack is in ROLLBACK_COMPLETE state and can not be updated`
+**Great news**: web-server-1 has been successfully deployed! 
 
-**Root Cause**: 
-- Previous deployment failed and left compute stack in ROLLBACK_COMPLETE state
-- CloudFormation cannot update stacks in failed states - they must be deleted first
+## 🚀 BOM Scaling Test in Progress
 
-**Solution Applied**:
-- ✅ Added automatic failed stack detection to workflow
-- ✅ Workflow now automatically deletes stacks in failed states before redeployment
-- ✅ Handles ROLLBACK_COMPLETE, CREATE_FAILED, ROLLBACK_FAILED states
-- ✅ No manual intervention required for stack cleanup
+**Current Status**:
+- ✅ **web-server-1**: Successfully deployed (t3.medium EC2 instance)
+- 🔄 **web-server-2**: **NOW ENABLED** for scaling test
+- 🔄 **app-storage-bucket**: Ready to deploy
 
-**Previous Issue Also Fixed**: Export/Import Naming Mismatch
-- ✅ Fixed network stack exports to use: `development-VpcId`, `development-PublicSubnet1aId`, etc.
-- ✅ Fixed compute stack imports to match: `development-VpcId`, `development-PublicSubnet1aId`, etc.
+**BOM Changes Made**:
+- Changed `web-server-2` from `enabled: false` to `enabled: true`
+- Updated compute-stack parameters: `CreateInstance2: true`
 
-## 🚀 Next Steps - READY FOR DEPLOYMENT
+## 🔄 Ready to Deploy - SCALING TEST
 
-**The workflow now handles all known issues automatically!**
+Based on updated BOM configuration (`bom/customer-bom.csv`):
 
-1. **Run GitHub Actions workflow**: "Deploy BOM Infrastructure (Direct)"
-2. **Workflow will automatically**:
-   - ✅ Delete the failed compute stack in ROLLBACK_COMPLETE state
-   - ✅ Update network stack exports (if needed)
-   - ✅ Deploy compute stack with corrected imports
-   - ✅ Deploy storage stack
-3. **Monitor progress**: Check workflow logs and CloudFormation console
-
-## 🔄 Ready to Deploy
-
-Based on current BOM configuration (`bom/customer-bom.csv`):
-
-### Will Deploy:
-- ✅ **EC2 Instance**: web-server-1 (t3.medium, 40GB) 
+### Will Deploy (New/Updated):
+- ✅ **EC2 Instance**: web-server-2 (t3.medium, 40GB) - **NEW SCALING TEST**
 - ✅ **S3 Bucket**: app-storage-bucket
 
+### Already Deployed:
+- ✅ **VPC**: Network infrastructure (already deployed)
+- ✅ **EC2 Instance**: web-server-1 (already deployed)
+
 ### Will NOT Deploy:
-- ❌ **EC2 Instance**: web-server-2 (disabled in BOM)
 - ❌ **RDS Database**: app-database (disabled in BOM)
 
 ## 🛠️ Troubleshooting Scripts
@@ -70,12 +58,12 @@ Based on current BOM configuration (`bom/customer-bom.csv`):
 - `cleanup-failed-stack.ps1` - **NEW: Failed stack cleanup utility**
 - `parameters/*.json` - Generated CloudFormation parameters
 
-## 🎯 Expected Deployment Result
+## 🎯 Expected Deployment Result - SCALING TEST
 
-After running the **FIXED workflow**:
-- Network stack: Will update exports (already deployed)
-- Compute stack: Will deploy web-server-1 EC2 instance ✅
+After running the **SCALING TEST workflow**:
+- Network stack: Already deployed ✅
+- Compute stack: Will ADD web-server-2 EC2 instance (scaling test) ✅
 - Storage stack: Will deploy S3 bucket ✅
-- Total resources: VPC + 1 EC2 + 1 S3 bucket
+- **Total resources**: VPC + **2 EC2 instances** + 1 S3 bucket
 
-**Export/import naming issues are now resolved! Ready for successful deployment.**
+**This demonstrates the core BOM scaling feature: adding resources by simply updating the CSV file!**
