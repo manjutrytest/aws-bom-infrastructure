@@ -36,6 +36,19 @@ Parameters:
     Type: Number
     Default: 40
   
+  CreateInstance3:
+    Type: String
+    Default: 'false'
+    AllowedValues: ['true', 'false']
+  
+  InstanceType3:
+    Type: String
+    Default: t3.medium
+  
+  VolumeSize3:
+    Type: Number
+    Default: 40
+  
   KeyPairName:
     Type: String
     Default: ''
@@ -43,6 +56,7 @@ Parameters:
 Conditions:
   CreateInst1: !Equals [!Ref CreateInstance1, 'true']
   CreateInst2: !Equals [!Ref CreateInstance2, 'true']
+  CreateInst3: !Equals [!Ref CreateInstance3, 'true']
   HasKeyPair: !Not [!Equals [!Ref KeyPairName, '']]
 
 Mappings:
@@ -139,6 +153,38 @@ Resources:
         - Key: Project
           Value: BOMInfrastructure
 
+  # Instance 3 (Private Subnet)
+  WebServer3:
+    Type: AWS::EC2::Instance
+    Condition: CreateInst3
+    Properties:
+      ImageId: !FindInMap [RegionMap, !Ref 'AWS::Region', AMI]
+      InstanceType: !Ref InstanceType3
+      KeyName: !If [HasKeyPair, !Ref KeyPairName, !Ref 'AWS::NoValue']
+      SecurityGroupIds:
+        - !Ref WebServerSecurityGroup
+      SubnetId:
+        Fn::ImportValue: !Sub '${Environment}-PrivateSubnet1aId'
+      BlockDeviceMappings:
+        - DeviceName: /dev/xvda
+          Ebs:
+            VolumeSize: !Ref VolumeSize3
+            VolumeType: gp3
+            DeleteOnTermination: true
+      UserData:
+        Fn::Base64: !Sub |
+          #!/bin/bash
+          yum update -y
+          yum install -y httpd
+          systemctl start httpd
+          systemctl enable httpd
+          echo "<h1>BOM Web Server 3 (Private) - ${Environment}</h1>" > /var/www/html/index.html
+      Tags:
+        - Key: Name
+          Value: !Sub '${Environment}-web-server-3'
+        - Key: Project
+          Value: BOMInfrastructure
+
 Outputs:
   WebServer1Id:
     Description: Web Server 1 Instance ID
@@ -155,3 +201,11 @@ Outputs:
   WebServer2IP:
     Description: Web Server 2 Public IP
     Value: !If [CreateInst2, !GetAtt WebServer2.PublicIp, 'Not Created']
+  
+  WebServer3Id:
+    Description: Web Server 3 Instance ID (Private)
+    Value: !If [CreateInst3, !Ref WebServer3, 'Not Created']
+  
+  WebServer3IP:
+    Description: Web Server 3 Private IP
+    Value: !If [CreateInst3, !GetAtt WebServer3.PrivateIp, 'Not Created']

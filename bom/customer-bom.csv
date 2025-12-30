@@ -8,5 +8,6 @@ igw,main-igw,development,network-stack,,,,true,eu-north-1,Internet Gateway for p
 natgw,nat-gateway-1a,development,network-stack,,,,true,eu-north-1,NAT Gateway for private subnet access
 ec2,web-server-1,development,compute-stack,,t3.medium,40,true,eu-north-1,Primary web server in AZ-a
 ec2,web-server-2,development,compute-stack,,t3.medium,40,true,eu-north-1,Secondary web server in AZ-b
+ec2,web-server-3,development,compute-stack,,t3.medium,40,true,eu-north-1,Private web server in AZ-a
 s3,app-storage-bucket,development,storage-stack,,,,true,eu-north-1,Application storage bucket
 rds,app-database,development,database-stack,,db.t3.micro,20,false,eu-north-1,Application database (disabled)

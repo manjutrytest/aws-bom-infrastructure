@@ -76,10 +76,13 @@ def create_compute_parameters(resources, environment):
         {"ParameterKey": "NetworkStackName", "ParameterValue": "network-stack"},
         {"ParameterKey": "CreateInstance1", "ParameterValue": "false"},
         {"ParameterKey": "CreateInstance2", "ParameterValue": "false"},
+        {"ParameterKey": "CreateInstance3", "ParameterValue": "false"},
         {"ParameterKey": "InstanceType1", "ParameterValue": "t3.medium"},
         {"ParameterKey": "InstanceType2", "ParameterValue": "t3.medium"},
+        {"ParameterKey": "InstanceType3", "ParameterValue": "t3.medium"},
         {"ParameterKey": "VolumeSize1", "ParameterValue": "40"},
         {"ParameterKey": "VolumeSize2", "ParameterValue": "40"},
+        {"ParameterKey": "VolumeSize3", "ParameterValue": "40"},
         {"ParameterKey": "KeyPairName", "ParameterValue": ""}
     ]
     
@@ -93,12 +96,16 @@ def create_compute_parameters(resources, environment):
             
             if ec2_count == 1:
                 params[2]["ParameterValue"] = "true"  # CreateInstance1
-                params[4]["ParameterValue"] = instance_type  # InstanceType1
-                params[6]["ParameterValue"] = storage_size  # VolumeSize1
+                params[5]["ParameterValue"] = instance_type  # InstanceType1
+                params[8]["ParameterValue"] = storage_size  # VolumeSize1
             elif ec2_count == 2:
                 params[3]["ParameterValue"] = "true"  # CreateInstance2
-                params[5]["ParameterValue"] = instance_type  # InstanceType2
-                params[7]["ParameterValue"] = storage_size  # VolumeSize2
+                params[6]["ParameterValue"] = instance_type  # InstanceType2
+                params[9]["ParameterValue"] = storage_size  # VolumeSize2
+            elif ec2_count == 3:
+                params[4]["ParameterValue"] = "true"  # CreateInstance3
+                params[7]["ParameterValue"] = instance_type  # InstanceType3
+                params[10]["ParameterValue"] = storage_size  # VolumeSize3
     
     return params
 
