@@ -7,6 +7,6 @@ subnet,private-subnet-1b,development,network-stack,10.0.20.0/24,,,true,eu-north-
 igw,main-igw,development,network-stack,,,,true,eu-north-1,Internet Gateway for public access
 natgw,nat-gateway-1a,development,network-stack,,,,true,eu-north-1,NAT Gateway for private subnet access
 ec2,web-server-1,development,compute-stack,,t3.medium,40,true,eu-north-1,Primary web server in AZ-a
-ec2,web-server-2,development,compute-stack,,t3.medium,40,false,eu-north-1,Secondary web server in AZ-b
+ec2,web-server-2,development,compute-stack,,t3.medium,40,true,eu-north-1,Secondary web server in AZ-b
 s3,app-storage-bucket,development,storage-stack,,,,true,eu-north-1,Application storage bucket
 rds,app-database,development,database-stack,,db.t3.micro,20,false,eu-north-1,Application database (disabled)
