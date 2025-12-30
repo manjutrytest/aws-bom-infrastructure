@@ -7,27 +7,35 @@
 3. **BOM Parser**: `simple-bom-parser.py` working correctly
 4. **GitHub Workflow**: **"Deploy BOM Infrastructure (Direct)"** - CLEAN PRODUCTION WORKFLOW
 
-## 🔧 Latest Issue Fixed: Export/Import Naming Mismatch
+## 🔧 Latest Issue Fixed: ROLLBACK_COMPLETE Stack State
 
-**Issue**: Compute stack failing with "No export named network-stack-development-VpcId found"
+**Issue**: `Stack is in ROLLBACK_COMPLETE state and can not be updated`
 
 **Root Cause**: 
-- Network stack was exporting: `network-stack-development-development-VpcId` 
-- Compute stack was importing: `network-stack-development-VpcId`
-- Naming mismatch caused deployment failure
+- Previous deployment failed and left compute stack in ROLLBACK_COMPLETE state
+- CloudFormation cannot update stacks in failed states - they must be deleted first
 
 **Solution Applied**:
+- ✅ Added automatic failed stack detection to workflow
+- ✅ Workflow now automatically deletes stacks in failed states before redeployment
+- ✅ Handles ROLLBACK_COMPLETE, CREATE_FAILED, ROLLBACK_FAILED states
+- ✅ No manual intervention required for stack cleanup
+
+**Previous Issue Also Fixed**: Export/Import Naming Mismatch
 - ✅ Fixed network stack exports to use: `development-VpcId`, `development-PublicSubnet1aId`, etc.
 - ✅ Fixed compute stack imports to match: `development-VpcId`, `development-PublicSubnet1aId`, etc.
-- ✅ Removed duplicate exports in network stack
-- ✅ Added `cleanup-failed-stack.ps1` for handling failed stacks
 
-## 🚀 Next Steps
+## 🚀 Next Steps - READY FOR DEPLOYMENT
 
-1. **Clean up failed stack**: Run `.\cleanup-failed-stack.ps1` (if needed)
-2. **Redeploy network stack**: To update exports (GitHub Actions workflow)
-3. **Deploy compute stack**: Should now work with corrected imports
-4. **Deploy storage stack**: Should work without issues
+**The workflow now handles all known issues automatically!**
+
+1. **Run GitHub Actions workflow**: "Deploy BOM Infrastructure (Direct)"
+2. **Workflow will automatically**:
+   - ✅ Delete the failed compute stack in ROLLBACK_COMPLETE state
+   - ✅ Update network stack exports (if needed)
+   - ✅ Deploy compute stack with corrected imports
+   - ✅ Deploy storage stack
+3. **Monitor progress**: Check workflow logs and CloudFormation console
 
 ## 🔄 Ready to Deploy
 
