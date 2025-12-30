@@ -5,25 +5,24 @@
 1. **IAM Role**: `GitHubActionsBOMCloudFormationRole` created and configured
 2. **Network Stack**: Successfully deployed with VPC, subnets, NAT gateway
 3. **BOM Parser**: `simple-bom-parser.py` working correctly
-4. **GitHub Workflow**: **"Deploy BOM Infrastructure (Direct)"** - NEW CLEAN WORKFLOW
+4. **GitHub Workflow**: **"Deploy BOM Infrastructure (Direct)"** - CLEAN PRODUCTION WORKFLOW
 
-## 🔧 Issue Resolution
+## 🧹 Repository Cleanup Completed
 
-**Previous Issue**: The old workflow was somehow calling a script that used change sets, causing deployment failures.
+**Removed unnecessary files:**
+- ❌ Duplicate workflows (kept only the direct deployment workflow)
+- ❌ Local deployment scripts (GitHub Actions only approach)
+- ❌ Temporary fix files and redundant documentation
+- ❌ Diagnostic scripts no longer needed
 
-**Solution**: Created a new clean workflow `deploy-bom-direct.yml` that:
-- Uses `aws cloudformation deploy` directly (no change sets)
-- Has clear step names and logging
-- Avoids any script dependencies that might cause issues
+**Clean repository structure:**
+- ✅ Single production workflow: `deploy-bom-direct.yml`
+- ✅ Essential scripts only
+- ✅ Clear documentation structure
 
-## 🚀 Next Steps - Use NEW Workflow
+## 🚀 Ready to Deploy
 
-1. **Go to GitHub Actions** → **"Deploy BOM Infrastructure (Direct)"** ← NEW WORKFLOW
-2. **Select Environment**: development
-3. **Run workflow**
-4. **Monitor**: Check CloudFormation console for stack creation
-
-## 🔄 Ready to Deploy
+**Use the CLEAN workflow**: **"Deploy BOM Infrastructure (Direct)"**
 
 Based on current BOM configuration (`bom/customer-bom.csv`):
 
@@ -35,27 +34,35 @@ Based on current BOM configuration (`bom/customer-bom.csv`):
 - ❌ **EC2 Instance**: web-server-2 (disabled in BOM)
 - ❌ **RDS Database**: app-database (disabled in BOM)
 
+## 🔧 If OIDC Issues Occur
+
+Run the troubleshooting script:
+```powershell
+.\scripts\fix-oidc-trust-policy.ps1
+```
+
 ## 🧪 Test Scaling
 
 After successful deployment:
 1. Edit `bom/customer-bom.csv`
 2. Change `web-server-2` enabled from `false` to `true`
-3. Run **NEW workflow** again
+3. Run workflow again
 4. Verify second EC2 instance is created
 
-## 📁 Key Files
+## 📁 Final Repository Structure
 
 - `bom/customer-bom.csv` - Infrastructure definition (source of truth)
-- `.github/workflows/deploy-bom-direct.yml` - **NEW CLEAN WORKFLOW** ← USE THIS
+- `.github/workflows/deploy-bom-direct.yml` - **SINGLE CLEAN WORKFLOW**
 - `scripts/simple-bom-parser.py` - BOM to CloudFormation converter
-- `parameters/*.json` - Generated CloudFormation parameters (ready to use)
+- `scripts/fix-oidc-trust-policy.ps1` - OIDC troubleshooting
+- `parameters/*.json` - Generated CloudFormation parameters
 
 ## 🎯 Expected Deployment Result
 
-After running the **NEW workflow**:
+After running the **CLEAN workflow**:
 - Network stack: Already deployed ✅
 - Compute stack: Will deploy web-server-1 EC2 instance
 - Storage stack: Will deploy S3 bucket
 - Total resources: VPC + 1 EC2 + 1 S3 bucket
 
-**Use the NEW "Deploy BOM Infrastructure (Direct)" workflow to avoid changeset issues!**
+**Repository is now clean and production-ready!**
