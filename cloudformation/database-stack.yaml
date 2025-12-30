@@ -70,7 +70,7 @@ Resources:
         - Key: Environment
           Value: !Ref Environment
         - Key: Project
-          Value: BOM-Infrastructure
+          Value: BOMInfrastructure
 
   # Security Group for RDS
   DBSecurityGroup:
@@ -93,7 +93,7 @@ Resources:
         - Key: Environment
           Value: !Ref Environment
         - Key: Project
-          Value: BOM-Infrastructure
+          Value: BOMInfrastructure
 
   # RDS Parameter Group
   DBParameterGroup:
@@ -114,7 +114,7 @@ Resources:
         - Key: Environment
           Value: !Ref Environment
         - Key: Project
-          Value: BOM-Infrastructure
+          Value: BOMInfrastructure
 
   # RDS Option Group
   DBOptionGroup:
@@ -130,7 +130,7 @@ Resources:
         - Key: Environment
           Value: !Ref Environment
         - Key: Project
-          Value: BOM-Infrastructure
+          Value: BOMInfrastructure
 
   # Secrets Manager Secret for DB Password
   DBSecret:
@@ -150,7 +150,7 @@ Resources:
         - Key: Environment
           Value: !Ref Environment
         - Key: Project
-          Value: BOM-Infrastructure
+          Value: BOMInfrastructure
 
   # RDS Database Instance
   Database:
@@ -199,7 +199,7 @@ Resources:
         - Key: Environment
           Value: !Ref Environment
         - Key: Project
-          Value: BOM-Infrastructure
+          Value: BOMInfrastructure
         - Key: BackupRequired
           Value: 'true'
 
@@ -222,7 +222,7 @@ Resources:
         - Key: Environment
           Value: !Ref Environment
         - Key: Project
-          Value: BOM-Infrastructure
+          Value: BOMInfrastructure
 
   # CloudWatch Log Group for RDS
   DBLogGroup:
@@ -235,7 +235,7 @@ Resources:
         - Key: Environment
           Value: !Ref Environment
         - Key: Project
-          Value: BOM-Infrastructure
+          Value: BOMInfrastructure
 
   # RDS Proxy (optional, for connection pooling)
   DBProxy:
@@ -263,7 +263,7 @@ Resources:
         - Key: Environment
           Value: !Ref Environment
         - Key: Project
-          Value: BOM-Infrastructure
+          Value: BOMInfrastructure
 
   # RDS Proxy Target Group
   DBProxyTargetGroup:
@@ -302,7 +302,7 @@ Resources:
         - Key: Environment
           Value: !Ref Environment
         - Key: Project
-          Value: BOM-Infrastructure
+          Value: BOMInfrastructure
 
 Outputs:
   DatabaseEndpoint:

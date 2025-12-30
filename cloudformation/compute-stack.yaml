@@ -105,7 +105,7 @@ Resources:
         - Key: Name
           Value: !Sub '${Environment}-web-server-1'
         - Key: Project
-          Value: BOM-Infrastructure
+          Value: BOMInfrastructure
 
   # Instance 2
   WebServer2:
@@ -137,7 +137,7 @@ Resources:
         - Key: Name
           Value: !Sub '${Environment}-web-server-2'
         - Key: Project
-          Value: BOM-Infrastructure
+          Value: BOMInfrastructure
 
 Outputs:
   WebServer1Id:

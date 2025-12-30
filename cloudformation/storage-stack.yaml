@@ -55,7 +55,9 @@ Resources:
         - Key: Name
           Value: !Sub '${Environment}-app-storage'
         - Key: Project
-          Value: BOM-Infrastructure
+          Value: BOMInfrastructure
+        - Key: Environment
+          Value: !Ref Environment
 
 Outputs:
   BucketName:
