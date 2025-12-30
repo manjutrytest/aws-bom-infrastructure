@@ -5,7 +5,23 @@
 1. **IAM Role**: `GitHubActionsBOMCloudFormationRole` created and configured
 2. **Network Stack**: Successfully deployed with VPC, subnets, NAT gateway
 3. **BOM Parser**: `simple-bom-parser.py` working correctly
-4. **GitHub Workflow**: "Deploy BOM Infrastructure (Working)" ready to use
+4. **GitHub Workflow**: **"Deploy BOM Infrastructure (Direct)"** - NEW CLEAN WORKFLOW
+
+## 🔧 Issue Resolution
+
+**Previous Issue**: The old workflow was somehow calling a script that used change sets, causing deployment failures.
+
+**Solution**: Created a new clean workflow `deploy-bom-direct.yml` that:
+- Uses `aws cloudformation deploy` directly (no change sets)
+- Has clear step names and logging
+- Avoids any script dependencies that might cause issues
+
+## 🚀 Next Steps - Use NEW Workflow
+
+1. **Go to GitHub Actions** → **"Deploy BOM Infrastructure (Direct)"** ← NEW WORKFLOW
+2. **Select Environment**: development
+3. **Run workflow**
+4. **Monitor**: Check CloudFormation console for stack creation
 
 ## 🔄 Ready to Deploy
 
@@ -19,34 +35,27 @@ Based on current BOM configuration (`bom/customer-bom.csv`):
 - ❌ **EC2 Instance**: web-server-2 (disabled in BOM)
 - ❌ **RDS Database**: app-database (disabled in BOM)
 
-## 🚀 Next Steps
-
-1. **Run Workflow**: Go to GitHub Actions → "Deploy BOM Infrastructure (Working)"
-2. **Select Environment**: development
-3. **Monitor**: Check CloudFormation console for stack creation
-4. **Verify**: EC2 instance and S3 bucket should be created
-
 ## 🧪 Test Scaling
 
 After successful deployment:
 1. Edit `bom/customer-bom.csv`
 2. Change `web-server-2` enabled from `false` to `true`
-3. Run workflow again
+3. Run **NEW workflow** again
 4. Verify second EC2 instance is created
 
 ## 📁 Key Files
 
 - `bom/customer-bom.csv` - Infrastructure definition (source of truth)
-- `.github/workflows/deploy-bom-working.yml` - Main deployment workflow
+- `.github/workflows/deploy-bom-direct.yml` - **NEW CLEAN WORKFLOW** ← USE THIS
 - `scripts/simple-bom-parser.py` - BOM to CloudFormation converter
 - `parameters/*.json` - Generated CloudFormation parameters (ready to use)
 
 ## 🎯 Expected Deployment Result
 
-After running the workflow:
+After running the **NEW workflow**:
 - Network stack: Already deployed ✅
 - Compute stack: Will deploy web-server-1 EC2 instance
 - Storage stack: Will deploy S3 bucket
 - Total resources: VPC + 1 EC2 + 1 S3 bucket
 
-**The solution is ready for deployment!**
+**Use the NEW "Deploy BOM Infrastructure (Direct)" workflow to avoid changeset issues!**

@@ -1,0 +1,143 @@
+name: Deploy BOM Infrastructure (Working)
+
+on:
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Environment'
+        required: true
+        default: 'development'
+        type: choice
+        options:
+          - development
+          - staging
+          - production
+
+env:
+  AWS_REGION: eu-north-1
+  AWS_ACCOUNT_ID: 588681235095
+
+permissions:
+  id-token: write
+  contents: read
+
+jobs:
+  deploy-bom:
+    name: Deploy BOM Infrastructure
+    runs-on: ubuntu-latest
+    environment: ${{ github.event.inputs.environment }}
+    
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: arn:aws:iam::${{ env.AWS_ACCOUNT_ID }}:role/GitHubActionsBOMCloudFormationRole
+          role-session-name: BOM-Deploy
+          aws-region: ${{ env.AWS_REGION }}
+      
+      - name: List Files (Debug)
+        run: |
+          echo "📁 Repository contents:"
+          ls -la
+          echo "📁 Scripts directory:"
+          ls -la scripts/
+          echo "📁 BOM directory:"
+          ls -la bom/
+      
+      - name: Parse BOM File
+        run: |
+          echo "🔍 Parsing BOM file..."
+          
+          # Create parameters directory
+          mkdir -p parameters
+          
+          # Use the simple parser directly
+          python scripts/simple-bom-parser.py bom/customer-bom.csv ${{ github.event.inputs.environment }}
+          
+          echo "📋 Generated parameter files:"
+          ls -la parameters/
+          
+          echo "📄 Network parameters:"
+          cat parameters/network-stack-parameters.json
+          
+          echo "📄 Compute parameters:"
+          cat parameters/compute-stack-parameters.json
+          
+          echo "📄 Storage parameters:"
+          cat parameters/storage-stack-parameters.json
+      
+      - name: Deploy Network Stack
+        run: |
+          echo "🌐 Deploying Network Stack..."
+          
+          aws cloudformation deploy \
+            --template-file cloudformation/network-stack.yaml \
+            --stack-name network-stack-${{ github.event.inputs.environment }} \
+            --parameter-overrides file://parameters/network-stack-parameters.json \
+            --capabilities CAPABILITY_IAM \
+            --region ${{ env.AWS_REGION }} \
+            --tags \
+              Key=Project,Value=BOM-Infrastructure \
+              Key=Environment,Value=${{ github.event.inputs.environment }} \
+            --no-fail-on-empty-changeset
+          
+          echo "✅ Network stack deployed"
+      
+      - name: Deploy Compute Stack
+        run: |
+          echo "💻 Deploying Compute Stack..."
+          
+          aws cloudformation deploy \
+            --template-file cloudformation/compute-stack.yaml \
+            --stack-name compute-stack-${{ github.event.inputs.environment }} \
+            --parameter-overrides file://parameters/compute-stack-parameters.json \
+            --capabilities CAPABILITY_IAM \
+            --region ${{ env.AWS_REGION }} \
+            --tags \
+              Key=Project,Value=BOM-Infrastructure \
+              Key=Environment,Value=${{ github.event.inputs.environment }} \
+            --no-fail-on-empty-changeset
+          
+          echo "✅ Compute stack deployed"
+      
+      - name: Deploy Storage Stack
+        run: |
+          echo "🗄️ Deploying Storage Stack..."
+          
+          aws cloudformation deploy \
+            --template-file cloudformation/storage-stack.yaml \
+            --stack-name storage-stack-${{ github.event.inputs.environment }} \
+            --parameter-overrides file://parameters/storage-stack-parameters.json \
+            --capabilities CAPABILITY_IAM \
+            --region ${{ env.AWS_REGION }} \
+            --tags \
+              Key=Project,Value=BOM-Infrastructure \
+              Key=Environment,Value=${{ github.event.inputs.environment }} \
+            --no-fail-on-empty-changeset
+          
+          echo "✅ Storage stack deployed"
+      
+      - name: Show Deployment Results
+        run: |
+          echo "🎉 Deployment Summary"
+          echo "===================="
+          
+          echo "📊 CloudFormation Stacks:"
+          aws cloudformation list-stacks \
+            --stack-status-filter CREATE_COMPLETE UPDATE_COMPLETE \
+            --query 'StackSummaries[?contains(StackName, `${{ github.event.inputs.environment }}`)].[StackName,StackStatus]' \
+            --output table
+          
+          echo "🖥️ EC2 Instances:"
+          aws ec2 describe-instances \
+            --filters "Name=tag:Project,Values=BOM-Infrastructure" "Name=instance-state-name,Values=running" \
+            --query 'Reservations[].Instances[].{Name:Tags[?Key==`Name`].Value|[0],InstanceId:InstanceId,State:State.Name,PublicIP:PublicIpAddress}' \
+            --output table
+          
+          echo "🪣 S3 Buckets:"
+          aws s3 ls | grep bom || echo "No BOM buckets found"
+          
+          echo "✅ BOM Infrastructure Deployment Complete!"
