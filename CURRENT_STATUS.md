@@ -7,22 +7,29 @@
 3. **BOM Parser**: `simple-bom-parser.py` working correctly
 4. **GitHub Workflow**: **"Deploy BOM Infrastructure (Direct)"** - CLEAN PRODUCTION WORKFLOW
 
-## 🧹 Repository Cleanup Completed
+## 🔧 Latest Issue Fixed: Export/Import Naming Mismatch
 
-**Removed unnecessary files:**
-- ❌ Duplicate workflows (kept only the direct deployment workflow)
-- ❌ Local deployment scripts (GitHub Actions only approach)
-- ❌ Temporary fix files and redundant documentation
-- ❌ Diagnostic scripts no longer needed
+**Issue**: Compute stack failing with "No export named network-stack-development-VpcId found"
 
-**Clean repository structure:**
-- ✅ Single production workflow: `deploy-bom-direct.yml`
-- ✅ Essential scripts only
-- ✅ Clear documentation structure
+**Root Cause**: 
+- Network stack was exporting: `network-stack-development-development-VpcId` 
+- Compute stack was importing: `network-stack-development-VpcId`
+- Naming mismatch caused deployment failure
 
-## 🚀 Ready to Deploy
+**Solution Applied**:
+- ✅ Fixed network stack exports to use: `development-VpcId`, `development-PublicSubnet1aId`, etc.
+- ✅ Fixed compute stack imports to match: `development-VpcId`, `development-PublicSubnet1aId`, etc.
+- ✅ Removed duplicate exports in network stack
+- ✅ Added `cleanup-failed-stack.ps1` for handling failed stacks
 
-**Use the CLEAN workflow**: **"Deploy BOM Infrastructure (Direct)"**
+## 🚀 Next Steps
+
+1. **Clean up failed stack**: Run `.\cleanup-failed-stack.ps1` (if needed)
+2. **Redeploy network stack**: To update exports (GitHub Actions workflow)
+3. **Deploy compute stack**: Should now work with corrected imports
+4. **Deploy storage stack**: Should work without issues
+
+## 🔄 Ready to Deploy
 
 Based on current BOM configuration (`bom/customer-bom.csv`):
 
@@ -34,35 +41,33 @@ Based on current BOM configuration (`bom/customer-bom.csv`):
 - ❌ **EC2 Instance**: web-server-2 (disabled in BOM)
 - ❌ **RDS Database**: app-database (disabled in BOM)
 
-## 🔧 If OIDC Issues Occur
+## 🛠️ Troubleshooting Scripts
 
-Run the troubleshooting script:
 ```powershell
+# Fix OIDC authentication issues
 .\scripts\fix-oidc-trust-policy.ps1
+
+# Clean up failed CloudFormation stacks
+.\cleanup-failed-stack.ps1
+
+# Setup IAM role (if needed)
+.\scripts\setup-iam-role.ps1 -Repository "manjutrytest/aws-bom-infrastructure"
 ```
-
-## 🧪 Test Scaling
-
-After successful deployment:
-1. Edit `bom/customer-bom.csv`
-2. Change `web-server-2` enabled from `false` to `true`
-3. Run workflow again
-4. Verify second EC2 instance is created
 
 ## 📁 Final Repository Structure
 
 - `bom/customer-bom.csv` - Infrastructure definition (source of truth)
 - `.github/workflows/deploy-bom-direct.yml` - **SINGLE CLEAN WORKFLOW**
 - `scripts/simple-bom-parser.py` - BOM to CloudFormation converter
-- `scripts/fix-oidc-trust-policy.ps1` - OIDC troubleshooting
+- `cleanup-failed-stack.ps1` - **NEW: Failed stack cleanup utility**
 - `parameters/*.json` - Generated CloudFormation parameters
 
 ## 🎯 Expected Deployment Result
 
-After running the **CLEAN workflow**:
-- Network stack: Already deployed ✅
-- Compute stack: Will deploy web-server-1 EC2 instance
-- Storage stack: Will deploy S3 bucket
+After running the **FIXED workflow**:
+- Network stack: Will update exports (already deployed)
+- Compute stack: Will deploy web-server-1 EC2 instance ✅
+- Storage stack: Will deploy S3 bucket ✅
 - Total resources: VPC + 1 EC2 + 1 S3 bucket
 
-**Repository is now clean and production-ready!**
+**Export/import naming issues are now resolved! Ready for successful deployment.**
