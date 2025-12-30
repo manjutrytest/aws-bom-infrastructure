@@ -1,102 +1,61 @@
 AWSTemplateFormatVersion: '2010-09-09'
-Description: 'BOM-driven Compute Infrastructure - EC2 Instances'
+Description: 'Simple Compute Stack for BOM Infrastructure'
 
 Parameters:
   Environment:
     Type: String
-    Default: production
-    Description: Environment name for resource tagging
+    Default: development
   
   NetworkStackName:
     Type: String
     Default: network-stack
-    Description: Name of the network stack to import VPC resources
+  
+  CreateInstance1:
+    Type: String
+    Default: 'false'
+    AllowedValues: ['true', 'false']
   
   InstanceType1:
     Type: String
     Default: t3.medium
-    Description: EC2 instance type for web server 1
-  
-  InstanceType2:
-    Type: String
-    Default: t3.medium
-    Description: EC2 instance type for web server 2
   
   VolumeSize1:
     Type: Number
     Default: 40
-    Description: EBS volume size in GB for web server 1
-  
-  VolumeSize2:
-    Type: Number
-    Default: 40
-    Description: EBS volume size in GB for web server 2
-  
-  CreateInstance1:
-    Type: String
-    Default: 'true'
-    AllowedValues: ['true', 'false']
-    Description: Whether to create web server 1
   
   CreateInstance2:
     Type: String
     Default: 'false'
     AllowedValues: ['true', 'false']
-    Description: Whether to create web server 2
+  
+  InstanceType2:
+    Type: String
+    Default: t3.medium
+  
+  VolumeSize2:
+    Type: Number
+    Default: 40
   
   KeyPairName:
     Type: String
     Default: ''
-    Description: EC2 Key Pair name for SSH access (optional)
 
 Conditions:
-  CreateWebServer1: !Equals [!Ref CreateInstance1, 'true']
-  CreateWebServer2: !Equals [!Ref CreateInstance2, 'true']
+  CreateInst1: !Equals [!Ref CreateInstance1, 'true']
+  CreateInst2: !Equals [!Ref CreateInstance2, 'true']
   HasKeyPair: !Not [!Equals [!Ref KeyPairName, '']]
 
 Mappings:
   RegionMap:
     eu-north-1:
-      AMI: ami-0014ce3e52359afbd  # Amazon Linux 2023 AMI
-    us-east-1:
-      AMI: ami-0c02fb55956c7d316  # Amazon Linux 2023 AMI
-    us-west-2:
-      AMI: ami-0c2d3e23d757c2917  # Amazon Linux 2023 AMI
+      AMI: ami-0014ce3e52359afbd
 
 Resources:
-  # IAM Role for EC2 instances
-  EC2InstanceRole:
-    Type: AWS::IAM::Role
-    Properties:
-      RoleName: !Sub 'BOM-EC2-Role-${Environment}-${AWS::StackName}'
-      AssumeRolePolicyDocument:
-        Version: '2012-10-17'
-        Statement:
-          - Effect: Allow
-            Principal:
-              Service: ec2.amazonaws.com
-            Action: sts:AssumeRole
-      ManagedPolicyArns:
-        - arn:aws:iam::aws:policy/CloudWatchAgentServerPolicy
-        - arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore
-      Tags:
-        - Key: Environment
-          Value: !Ref Environment
-        - Key: Project
-          Value: BOM-Infrastructure
-
-  EC2InstanceProfile:
-    Type: AWS::IAM::InstanceProfile
-    Properties:
-      InstanceProfileName: !Sub 'BOM-EC2-Profile-${Environment}-${AWS::StackName}'
-      Roles:
-        - !Ref EC2InstanceRole
-
-  # Security Group for Web Servers
+  # Security Group
   WebServerSecurityGroup:
     Type: AWS::EC2::SecurityGroup
     Properties:
-      GroupDescription: Security group for BOM web servers
+      GroupDescription: Security group for web servers
       VpcId:
         Fn::ImportValue: !Sub '${NetworkStackName}-${Environment}-VpcId'
       SecurityGroupIngress:
@@ -104,39 +63,26 @@ Resources:
           FromPort: 80
           ToPort: 80
           CidrIp: 0.0.0.0/0
-          Description: HTTP access
         - IpProtocol: tcp
           FromPort: 443
           ToPort: 443
           CidrIp: 0.0.0.0/0
-          Description: HTTPS access
         - IpProtocol: tcp
           FromPort: 22
           ToPort: 22
-          CidrIp:
-            Fn::ImportValue: !Sub '${NetworkStackName}-${Environment}-VpcCidr'
-          Description: SSH access from VPC
-      SecurityGroupEgress:
-        - IpProtocol: -1
-          CidrIp: 0.0.0.0/0
-          Description: All outbound traffic
+          CidrIp: 10.0.0.0/16
       Tags:
         - Key: Name
-          Value: !Sub '${Environment}-web-server-sg'
-        - Key: Environment
-          Value: !Ref Environment
-        - Key: Project
-          Value: BOM-Infrastructure
+          Value: !Sub '${Environment}-web-sg'
 
-  # Web Server 1
+  # Instance 1
   WebServer1:
     Type: AWS::EC2::Instance
-    Condition: CreateWebServer1
+    Condition: CreateInst1
     Properties:
       ImageId: !FindInMap [RegionMap, !Ref 'AWS::Region', AMI]
       InstanceType: !Ref InstanceType1
       KeyName: !If [HasKeyPair, !Ref KeyPairName, !Ref 'AWS::NoValue']
-      IamInstanceProfile: !Ref EC2InstanceProfile
       SecurityGroupIds:
         - !Ref WebServerSecurityGroup
       SubnetId:
@@ -144,10 +90,9 @@ Resources:
       BlockDeviceMappings:
         - DeviceName: /dev/xvda
           Ebs:
-            VolumeType: gp3
             VolumeSize: !Ref VolumeSize1
+            VolumeType: gp3
             DeleteOnTermination: true
-            Encrypted: true
       UserData:
         Fn::Base64: !Sub |
           #!/bin/bash
@@ -155,48 +100,21 @@ Resources:
           yum install -y httpd
           systemctl start httpd
           systemctl enable httpd
-          
-          # Install CloudWatch agent
-          yum install -y amazon-cloudwatch-agent
-          
-          # Create simple web page
-          cat > /var/www/html/index.html << EOF
-          <!DOCTYPE html>
-          <html>
-          <head>
-              <title>BOM Web Server 1</title>
-          </head>
-          <body>
-              <h1>Welcome to BOM Infrastructure</h1>
-              <p>Web Server 1 - ${Environment} Environment</p>
-              <p>Instance ID: $(curl -s http://169.254.169.254/latest/meta-data/instance-id)</p>
-              <p>Availability Zone: $(curl -s http://169.254.169.254/latest/meta-data/placement/availability-zone)</p>
-          </body>
-          </html>
-          EOF
-          
-          # Install SSM agent (already included in Amazon Linux 2023)
-          systemctl start amazon-ssm-agent
-          systemctl enable amazon-ssm-agent
+          echo "<h1>BOM Web Server 1 - ${Environment}</h1>" > /var/www/html/index.html
       Tags:
         - Key: Name
           Value: !Sub '${Environment}-web-server-1'
-        - Key: Environment
-          Value: !Ref Environment
         - Key: Project
           Value: BOM-Infrastructure
-        - Key: Role
-          Value: WebServer
 
-  # Web Server 2 (conditional)
+  # Instance 2
   WebServer2:
     Type: AWS::EC2::Instance
-    Condition: CreateWebServer2
+    Condition: CreateInst2
     Properties:
       ImageId: !FindInMap [RegionMap, !Ref 'AWS::Region', AMI]
       InstanceType: !Ref InstanceType2
       KeyName: !If [HasKeyPair, !Ref KeyPairName, !Ref 'AWS::NoValue']
-      IamInstanceProfile: !Ref EC2InstanceProfile
       SecurityGroupIds:
         - !Ref WebServerSecurityGroup
       SubnetId:
@@ -204,10 +122,9 @@ Resources:
       BlockDeviceMappings:
         - DeviceName: /dev/xvda
           Ebs:
-            VolumeType: gp3
             VolumeSize: !Ref VolumeSize2
+            VolumeType: gp3
             DeleteOnTermination: true
-            Encrypted: true
       UserData:
         Fn::Base64: !Sub |
           #!/bin/bash
@@ -215,84 +132,26 @@ Resources:
           yum install -y httpd
           systemctl start httpd
           systemctl enable httpd
-          
-          # Install CloudWatch agent
-          yum install -y amazon-cloudwatch-agent
-          
-          # Create simple web page
-          cat > /var/www/html/index.html << EOF
-          <!DOCTYPE html>
-          <html>
-          <head>
-              <title>BOM Web Server 2</title>
-          </head>
-          <body>
-              <h1>Welcome to BOM Infrastructure</h1>
-              <p>Web Server 2 - ${Environment} Environment</p>
-              <p>Instance ID: $(curl -s http://169.254.169.254/latest/meta-data/instance-id)</p>
-              <p>Availability Zone: $(curl -s http://169.254.169.254/latest/meta-data/placement/availability-zone)</p>
-          </body>
-          </html>
-          EOF
-          
-          # Install SSM agent (already included in Amazon Linux 2023)
-          systemctl start amazon-ssm-agent
-          systemctl enable amazon-ssm-agent
+          echo "<h1>BOM Web Server 2 - ${Environment}</h1>" > /var/www/html/index.html
       Tags:
         - Key: Name
           Value: !Sub '${Environment}-web-server-2'
-        - Key: Environment
-          Value: !Ref Environment
         - Key: Project
           Value: BOM-Infrastructure
-        - Key: Role
-          Value: WebServer
 
 Outputs:
   WebServer1Id:
     Description: Web Server 1 Instance ID
-    Value: !If [CreateWebServer1, !Ref WebServer1, 'Not Created']
-    Export:
-      Name: !Sub '${AWS::StackName}-WebServer1Id'
-
-  WebServer1PublicIP:
+    Value: !If [CreateInst1, !Ref WebServer1, 'Not Created']
+  
+  WebServer1IP:
     Description: Web Server 1 Public IP
-    Value: !If [CreateWebServer1, !GetAtt WebServer1.PublicIp, 'Not Created']
-    Export:
-      Name: !Sub '${AWS::StackName}-WebServer1PublicIP'
-
-  WebServer1PrivateIP:
-    Description: Web Server 1 Private IP
-    Value: !If [CreateWebServer1, !GetAtt WebServer1.PrivateIp, 'Not Created']
-    Export:
-      Name: !Sub '${AWS::StackName}-WebServer1PrivateIP'
-
+    Value: !If [CreateInst1, !GetAtt WebServer1.PublicIp, 'Not Created']
+  
   WebServer2Id:
     Description: Web Server 2 Instance ID
-    Value: !If [CreateWebServer2, !Ref WebServer2, 'Not Created']
-    Export:
-      Name: !Sub '${AWS::StackName}-WebServer2Id'
-
-  WebServer2PublicIP:
+    Value: !If [CreateInst2, !Ref WebServer2, 'Not Created']
+  
+  WebServer2IP:
     Description: Web Server 2 Public IP
-    Value: !If [CreateWebServer2, !GetAtt WebServer2.PublicIp, 'Not Created']
-    Export:
-      Name: !Sub '${AWS::StackName}-WebServer2PublicIP'
-
-  WebServer2PrivateIP:
-    Description: Web Server 2 Private IP
-    Value: !If [CreateWebServer2, !GetAtt WebServer2.PrivateIp, 'Not Created']
-    Export:
-      Name: !Sub '${AWS::StackName}-WebServer2PrivateIP'
-
-  WebServerSecurityGroupId:
-    Description: Web Server Security Group ID
-    Value: !Ref WebServerSecurityGroup
-    Export:
-      Name: !Sub '${AWS::StackName}-WebServerSecurityGroupId'
-
-  EC2RoleArn:
-    Description: EC2 Instance Role ARN
-    Value: !GetAtt EC2InstanceRole.Arn
-    Export:
-      Name: !Sub '${AWS::StackName}-EC2RoleArn'
+    Value: !If [CreateInst2, !GetAtt WebServer2.PublicIp, 'Not Created']
