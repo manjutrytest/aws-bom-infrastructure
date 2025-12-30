@@ -85,7 +85,22 @@ jobs:
         run: |
           echo "💻 Deploying Compute Stack using direct CloudFormation deploy..."
           
-          # Use aws cloudformation deploy (no change sets)
+          # Check if stack exists and is in a failed state
+          STACK_NAME="compute-stack-${{ github.event.inputs.environment }}"
+          STACK_STATUS=$(aws cloudformation describe-stacks --stack-name "$STACK_NAME" --query 'Stacks[0].StackStatus' --output text 2>/dev/null || echo "DOES_NOT_EXIST")
+          
+          echo "Current stack status: $STACK_STATUS"
+          
+          # Delete stack if it's in a failed state
+          if [[ "$STACK_STATUS" == "ROLLBACK_COMPLETE" || "$STACK_STATUS" == "CREATE_FAILED" || "$STACK_STATUS" == "ROLLBACK_FAILED" || "$STACK_STATUS" == "UPDATE_ROLLBACK_COMPLETE" ]]; then
+            echo "🗑️ Stack is in failed state ($STACK_STATUS). Deleting before redeployment..."
+            aws cloudformation delete-stack --stack-name "$STACK_NAME" --region ${{ env.AWS_REGION }}
+            echo "⏳ Waiting for stack deletion to complete..."
+            aws cloudformation wait stack-delete-complete --stack-name "$STACK_NAME" --region ${{ env.AWS_REGION }}
+            echo "✅ Failed stack deleted successfully"
+          fi
+          
+          # Deploy the stack
           aws cloudformation deploy \
             --template-file cloudformation/compute-stack.yaml \
             --stack-name compute-stack-${{ github.event.inputs.environment }} \
@@ -101,7 +116,22 @@ jobs:
         run: |
           echo "🗄️ Deploying Storage Stack using direct CloudFormation deploy..."
           
-          # Use aws cloudformation deploy (no change sets)
+          # Check if stack exists and is in a failed state
+          STACK_NAME="storage-stack-${{ github.event.inputs.environment }}"
+          STACK_STATUS=$(aws cloudformation describe-stacks --stack-name "$STACK_NAME" --query 'Stacks[0].StackStatus' --output text 2>/dev/null || echo "DOES_NOT_EXIST")
+          
+          echo "Current stack status: $STACK_STATUS"
+          
+          # Delete stack if it's in a failed state
+          if [[ "$STACK_STATUS" == "ROLLBACK_COMPLETE" || "$STACK_STATUS" == "CREATE_FAILED" || "$STACK_STATUS" == "ROLLBACK_FAILED" || "$STACK_STATUS" == "UPDATE_ROLLBACK_COMPLETE" ]]; then
+            echo "🗑️ Stack is in failed state ($STACK_STATUS). Deleting before redeployment..."
+            aws cloudformation delete-stack --stack-name "$STACK_NAME" --region ${{ env.AWS_REGION }}
+            echo "⏳ Waiting for stack deletion to complete..."
+            aws cloudformation wait stack-delete-complete --stack-name "$STACK_NAME" --region ${{ env.AWS_REGION }}
+            echo "✅ Failed stack deleted successfully"
+          fi
+          
+          # Deploy the stack
           aws cloudformation deploy \
             --template-file cloudformation/storage-stack.yaml \
             --stack-name storage-stack-${{ github.event.inputs.environment }} \
