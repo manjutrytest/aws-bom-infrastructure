@@ -114,8 +114,6 @@ def create_storage_parameters(resources, environment):
     params = [
         {"ParameterKey": "Environment", "ParameterValue": environment},
         {"ParameterKey": "CreateBucket", "ParameterValue": "false"},
-        {"ParameterKey": "EnableVersioning", "ParameterValue": "true"},
-        {"ParameterKey": "EnableEncryption", "ParameterValue": "true"},
         {"ParameterKey": "BucketName", "ParameterValue": ""}
     ]
     
@@ -123,12 +121,9 @@ def create_storage_parameters(resources, environment):
     for resource in resources:
         if resource['resource_type'] == 's3':
             params[1]["ParameterValue"] = "true"  # CreateBucket
-            # Create a shorter, unique bucket name
-            resource_name = resource['resource_name'].replace('_', '-').replace('storage-bucket', 'storage')
-            # Add a hash suffix to ensure uniqueness
-            name_hash = hashlib.md5(f"{resource_name}-{environment}".encode()).hexdigest()[:8]
-            bucket_name = f"bom-{resource_name}-{environment}-{name_hash}"
-            params[4]["ParameterValue"] = bucket_name.lower()
+            # Create a simple, compliant bucket name
+            bucket_name = f"bom-app-storage-{environment}-2024"
+            params[2]["ParameterValue"] = bucket_name.lower()
             break
     
     return params

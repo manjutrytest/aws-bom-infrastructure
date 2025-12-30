@@ -146,7 +146,6 @@ jobs:
             --parameter-overrides file://parameters/storage-stack-parameters.json \
             --capabilities CAPABILITY_IAM \
             --region ${{ env.AWS_REGION }} \
-            --tags Key=Project,Value=BOMInfrastructure Key=Environment,Value=${{ github.event.inputs.environment }} \
             --no-fail-on-empty-changeset
           
           # If deployment fails, show stack events
