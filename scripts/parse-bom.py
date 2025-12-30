@@ -112,7 +112,7 @@ class BOMParser:
     def generate_storage_parameters(self, entries: List[Dict]) -> Dict[str, Any]:
         """Generate parameters for storage stack"""
         params = {
-            'Environment': 'production',
+            'Environment': 'development',
             'CreateBucket': 'false',
             'EnableVersioning': 'true',
             'EnableEncryption': 'true',
@@ -124,7 +124,7 @@ class BOMParser:
             
             if resource_type == 's3':
                 params['CreateBucket'] = 'true'
-                params['Environment'] = entry.get('environment', 'production')
+                params['Environment'] = entry.get('environment', 'development')
                 
                 # Generate bucket name if not provided
                 resource_name = entry.get('resource_name', '')
@@ -138,7 +138,7 @@ class BOMParser:
     def generate_database_parameters(self, entries: List[Dict]) -> Dict[str, Any]:
         """Generate parameters for database stack"""
         params = {
-            'Environment': 'production',
+            'Environment': 'development',
             'NetworkStackName': 'network-stack',
             'CreateDatabase': 'false',
             'DBInstanceClass': 'db.t3.micro',
@@ -154,7 +154,7 @@ class BOMParser:
             
             if resource_type == 'rds':
                 params['CreateDatabase'] = 'true'
-                params['Environment'] = entry.get('environment', 'production')
+                params['Environment'] = entry.get('environment', 'development')
                 
                 instance_type = entry.get('instance_type', 'db.t3.micro')
                 storage_size = int(entry.get('storage_size', 20))

@@ -68,7 +68,7 @@ Resources:
   EC2InstanceRole:
     Type: AWS::IAM::Role
     Properties:
-      RoleName: !Sub 'BOM-EC2-Role-${Environment}'
+      RoleName: !Sub 'BOM-EC2-Role-${Environment}-${AWS::StackName}'
       AssumeRolePolicyDocument:
         Version: '2012-10-17'
         Statement:
@@ -88,7 +88,7 @@ Resources:
   EC2InstanceProfile:
     Type: AWS::IAM::InstanceProfile
     Properties:
-      InstanceProfileName: !Sub 'BOM-EC2-Profile-${Environment}'
+      InstanceProfileName: !Sub 'BOM-EC2-Profile-${Environment}-${AWS::StackName}'
       Roles:
         - !Ref EC2InstanceRole
 
@@ -98,7 +98,7 @@ Resources:
     Properties:
       GroupDescription: Security group for BOM web servers
       VpcId:
-        Fn::ImportValue: !Sub '${NetworkStackName}-VpcId'
+        Fn::ImportValue: !Sub '${NetworkStackName}-${Environment}-VpcId'
       SecurityGroupIngress:
         - IpProtocol: tcp
           FromPort: 80
@@ -114,7 +114,7 @@ Resources:
           FromPort: 22
           ToPort: 22
           CidrIp:
-            Fn::ImportValue: !Sub '${NetworkStackName}-VpcCidr'
+            Fn::ImportValue: !Sub '${NetworkStackName}-${Environment}-VpcCidr'
           Description: SSH access from VPC
       SecurityGroupEgress:
         - IpProtocol: -1
@@ -140,7 +140,7 @@ Resources:
       SecurityGroupIds:
         - !Ref WebServerSecurityGroup
       SubnetId:
-        Fn::ImportValue: !Sub '${NetworkStackName}-PublicSubnet1aId'
+        Fn::ImportValue: !Sub '${NetworkStackName}-${Environment}-PublicSubnet1aId'
       BlockDeviceMappings:
         - DeviceName: /dev/xvda
           Ebs:
@@ -200,7 +200,7 @@ Resources:
       SecurityGroupIds:
         - !Ref WebServerSecurityGroup
       SubnetId:
-        Fn::ImportValue: !Sub '${NetworkStackName}-PublicSubnet1bId'
+        Fn::ImportValue: !Sub '${NetworkStackName}-${Environment}-PublicSubnet1bId'
       BlockDeviceMappings:
         - DeviceName: /dev/xvda
           Ebs:

@@ -62,8 +62,8 @@ Resources:
       DBSubnetGroupName: !Sub '${Environment}-db-subnet-group'
       DBSubnetGroupDescription: Subnet group for BOM RDS database
       SubnetIds:
-        - Fn::ImportValue: !Sub '${NetworkStackName}-PrivateSubnet1aId'
-        - Fn::ImportValue: !Sub '${NetworkStackName}-PrivateSubnet1bId'
+        - Fn::ImportValue: !Sub '${NetworkStackName}-${Environment}-PrivateSubnet1aId'
+        - Fn::ImportValue: !Sub '${NetworkStackName}-${Environment}-PrivateSubnet1bId'
       Tags:
         - Key: Name
           Value: !Sub '${Environment}-db-subnet-group'
@@ -79,19 +79,13 @@ Resources:
     Properties:
       GroupDescription: Security group for BOM RDS database
       VpcId:
-        Fn::ImportValue: !Sub '${NetworkStackName}-VpcId'
+        Fn::ImportValue: !Sub '${NetworkStackName}-${Environment}-VpcId'
       SecurityGroupIngress:
         - IpProtocol: tcp
           FromPort: 3306
           ToPort: 3306
-          SourceSecurityGroupId:
-            Fn::ImportValue: !Sub 'compute-stack-WebServerSecurityGroupId'
-          Description: MySQL access from web servers
-        - IpProtocol: tcp
-          FromPort: 3306
-          ToPort: 3306
           CidrIp:
-            Fn::ImportValue: !Sub '${NetworkStackName}-VpcCidr'
+            Fn::ImportValue: !Sub '${NetworkStackName}-${Environment}-VpcCidr'
           Description: MySQL access from VPC
       Tags:
         - Key: Name
@@ -255,8 +249,8 @@ Resources:
           SecretArn: !Ref DBSecret
       RoleArn: !GetAtt DBProxyRole.Arn
       VpcSubnetIds:
-        - Fn::ImportValue: !Sub '${NetworkStackName}-PrivateSubnet1aId'
-        - Fn::ImportValue: !Sub '${NetworkStackName}-PrivateSubnet1bId'
+        - Fn::ImportValue: !Sub '${NetworkStackName}-${Environment}-PrivateSubnet1aId'
+        - Fn::ImportValue: !Sub '${NetworkStackName}-${Environment}-PrivateSubnet1bId'
       VpcSecurityGroupIds:
         - !Ref DBSecurityGroup
       RequireTLS: true

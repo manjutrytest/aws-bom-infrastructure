@@ -1,27 +1,17 @@
 # AWS BOM-Driven Infrastructure Deployment
 
-A production-ready solution for deploying AWS infrastructure using Bill of Materials (BOM) CSV files as the single source of truth.
+Deploy AWS infrastructure using Bill of Materials (BOM) CSV files via GitHub Actions.
 
 ## 🚀 Quick Start
 
-1. **Setup IAM Role** (one-time):
-   ```powershell
-   .\scripts\setup-iam-role.ps1 -Repository "manjutrytest/aws-bom-infrastructure"
-   ```
-
-2. **Test BOM Deployment**:
-   ```powershell
-   .\test-bom-deployment.ps1
-   ```
-
-3. **Deploy via GitHub Actions**:
+1. **Setup Complete**: IAM role already configured
+2. **Deploy via GitHub Actions**:
    - Go to Actions tab → "Deploy BOM-driven AWS Infrastructure"
    - Select environment: `development`
    - Run workflow
+   - Approve deployment when prompted
 
 ## 📋 Current BOM Configuration
-
-The BOM file defines these resources for **development** environment:
 
 | Resource | Type | Status | Description |
 |----------|------|--------|-------------|
@@ -32,26 +22,19 @@ The BOM file defines these resources for **development** environment:
 | private-subnet-1b | Subnet | ✅ Enabled | Private subnet AZ-b |
 | main-igw | IGW | ✅ Enabled | Internet Gateway |
 | nat-gateway-1a | NAT | ✅ Enabled | NAT Gateway |
-| web-server-1 | EC2 | ✅ Enabled | t3.medium, 40GB |
+| **web-server-1** | **EC2** | **✅ Enabled** | **t3.medium, 40GB** |
 | web-server-2 | EC2 | ❌ Disabled | t3.medium, 40GB |
 | app-storage-bucket | S3 | ✅ Enabled | Application storage |
 | app-database | RDS | ❌ Disabled | db.t3.micro, 20GB |
 
-## 🔄 Scaling Instructions
+## 🔄 Test Scaling
 
-To add more resources:
+After successful deployment, test scaling by:
 
-1. **Enable web-server-2**:
-   ```csv
-   ec2,web-server-2,development,compute-stack,,t3.medium,40,true,eu-north-1,Secondary web server
-   ```
-
-2. **Enable database**:
-   ```csv
-   rds,app-database,development,database-stack,,db.t3.micro,20,true,eu-north-1,Application database
-   ```
-
-3. **Deploy changes**: Run GitHub Actions workflow again
+1. **Edit BOM file**: Change `web-server-2` from `false` to `true`
+2. **Run workflow again**: Same GitHub Actions workflow
+3. **Approve deployment**: Review and approve changes
+4. **Verify**: Check AWS console for second EC2 instance
 
 ## 🎯 Target Environment
 
@@ -60,22 +43,12 @@ To add more resources:
 - **Environment**: development
 - **IAM Role**: GitHubActionsBOMCloudFormationRole
 
-## 📁 Repository Structure
+## ✅ Expected Deployment
 
-```
-aws-bom-infrastructure/
-├── bom/customer-bom.csv           # BOM configuration
-├── cloudformation/                # CloudFormation templates
-├── .github/workflows/             # GitHub Actions
-├── scripts/                       # Automation scripts
-├── iam/setup-oidc-role.yaml      # IAM role setup
-└── test-bom-deployment.ps1       # Local testing
-```
+When you run the GitHub Actions workflow, it will deploy:
 
-## 🔒 Security Features
+1. **Network Stack**: VPC, subnets, gateways (already deployed)
+2. **Compute Stack**: EC2 instance (web-server-1)
+3. **Storage Stack**: S3 bucket
 
-- ✅ OIDC-based authentication (no access keys)
-- ✅ Manual approval required for deployments
-- ✅ Repository-specific trust policy
-- ✅ Least privilege IAM permissions
-- ✅ All resources encrypted by default
+**All resources will be deployed in a single workflow run with manual approval.**

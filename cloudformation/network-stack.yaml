@@ -275,55 +275,55 @@ Outputs:
     Description: VPC ID
     Value: !Ref MainVPC
     Export:
-      Name: !Sub '${AWS::StackName}-VpcId'
+      Name: !Sub '${AWS::StackName}-${Environment}-VpcId'
 
   VpcCidr:
     Description: VPC CIDR Block
     Value: !Ref VpcCidr
     Export:
-      Name: !Sub '${AWS::StackName}-VpcCidr'
+      Name: !Sub '${AWS::StackName}-${Environment}-VpcCidr'
 
   PublicSubnet1aId:
     Description: Public Subnet 1a ID
     Value: !Ref PublicSubnet1a
     Export:
-      Name: !Sub '${AWS::StackName}-PublicSubnet1aId'
+      Name: !Sub '${AWS::StackName}-${Environment}-PublicSubnet1aId'
 
   PublicSubnet1bId:
     Description: Public Subnet 1b ID
     Value: !Ref PublicSubnet1b
     Export:
-      Name: !Sub '${AWS::StackName}-PublicSubnet1bId'
+      Name: !Sub '${AWS::StackName}-${Environment}-PublicSubnet1bId'
 
   PrivateSubnet1aId:
     Description: Private Subnet 1a ID
     Value: !Ref PrivateSubnet1a
     Export:
-      Name: !Sub '${AWS::StackName}-PrivateSubnet1aId'
+      Name: !Sub '${AWS::StackName}-${Environment}-PrivateSubnet1aId'
 
   PrivateSubnet1bId:
     Description: Private Subnet 1b ID
     Value: !Ref PrivateSubnet1b
     Export:
-      Name: !Sub '${AWS::StackName}-PrivateSubnet1bId'
+      Name: !Sub '${AWS::StackName}-${Environment}-PrivateSubnet1bId'
 
   DefaultSecurityGroupId:
     Description: Default Security Group ID
     Value: !Ref DefaultSecurityGroup
     Export:
-      Name: !Sub '${AWS::StackName}-DefaultSecurityGroupId'
+      Name: !Sub '${AWS::StackName}-${Environment}-DefaultSecurityGroupId'
 
   InternetGatewayId:
     Description: Internet Gateway ID
     Value: !Ref InternetGateway
     Export:
-      Name: !Sub '${AWS::StackName}-InternetGatewayId'
+      Name: !Sub '${AWS::StackName}-${Environment}-InternetGatewayId'
 
   NatGatewayId:
     Description: NAT Gateway ID
     Value: !If [CreateNat, !Ref NatGateway, 'Not Created']
     Export:
-      Name: !Sub '${AWS::StackName}-NatGatewayId'
+      Name: !Sub '${AWS::StackName}-${Environment}-NatGatewayId'
 
   DefaultSecurityGroupId:
     Description: Default Security Group ID
