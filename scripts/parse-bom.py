@@ -175,46 +175,41 @@ class BOMParser:
             'database-stack': self.generate_database_parameters
         }
         
-        for stack_name, entries in self.stacks.items():
-            if stack_name in stack_generators:
-                params = stack_generators[stack_name](entries)
-                
-                # Convert to CloudFormation parameter format
-                cf_params = []
-                for key, value in params.items():
-                    cf_params.append({
-                        'ParameterKey': key,
-                        'ParameterValue': str(value)
-                    })
-                
-                # Write parameter file
-                param_file = os.path.join(output_dir, f'{stack_name}-parameters.json')
-                with open(param_file, 'w') as f:
-                    json.dump(cf_params, f, indent=2)
-                
-                print(f"✅ Generated parameters for {stack_name}: {param_file}")
-            else:
-                print(f"⚠️  Unknown stack type: {stack_name}")
+        # Generate parameters for all stacks, even if they have no entries
+        for stack_name, generator in stack_generators.items():
+            entries = self.stacks.get(stack_name, [])
+            params = generator(entries)
+            
+            # Convert to CloudFormation parameter format
+            cf_params = []
+            for key, value in params.items():
+                cf_params.append({
+                    'ParameterKey': key,
+                    'ParameterValue': str(value)
+                })
+            
+            # Write parameter file
+            param_file = os.path.join(output_dir, f'{stack_name}-parameters.json')
+            with open(param_file, 'w') as f:
+                json.dump(cf_params, f, indent=2)
+            
+            print(f"✅ Generated parameters for {stack_name}: {param_file}")
     
     def get_deployment_order(self) -> List[str]:
         """Get the correct order for stack deployment"""
         deployment_order = []
         
         # Network stack must be deployed first
-        if 'network-stack' in self.stacks:
-            deployment_order.append('network-stack')
+        deployment_order.append('network-stack')
         
         # Storage can be deployed independently
-        if 'storage-stack' in self.stacks:
-            deployment_order.append('storage-stack')
+        deployment_order.append('storage-stack')
         
         # Compute depends on network
-        if 'compute-stack' in self.stacks:
-            deployment_order.append('compute-stack')
+        deployment_order.append('compute-stack')
         
         # Database depends on network and optionally compute
-        if 'database-stack' in self.stacks:
-            deployment_order.append('database-stack')
+        # deployment_order.append('database-stack')  # Disabled for now
         
         return deployment_order
     
