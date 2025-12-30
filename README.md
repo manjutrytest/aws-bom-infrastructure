@@ -4,7 +4,7 @@
 
 ## 🚀 Quick Start
 
-1. **Go to Actions tab** → "Deploy BOM Infrastructure (Simple)"
+1. **Go to Actions tab** → "Deploy BOM Infrastructure (Working)"
 2. **Select environment**: `development`
 3. **Run workflow**
 4. **Wait for deployment** (no manual approval needed)
