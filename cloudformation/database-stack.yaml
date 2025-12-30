@@ -1,0 +1,354 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: 'BOM-driven Database Infrastructure - RDS'
+
+Parameters:
+  Environment:
+    Type: String
+    Default: production
+    Description: Environment name for resource tagging
+  
+  NetworkStackName:
+    Type: String
+    Default: network-stack
+    Description: Name of the network stack to import VPC resources
+  
+  DBInstanceClass:
+    Type: String
+    Default: db.t3.micro
+    Description: RDS instance class
+  
+  DBAllocatedStorage:
+    Type: Number
+    Default: 20
+    Description: RDS allocated storage in GB
+  
+  DBName:
+    Type: String
+    Default: appdb
+    Description: Database name
+  
+  DBUsername:
+    Type: String
+    Default: admin
+    Description: Database master username
+  
+  CreateDatabase:
+    Type: String
+    Default: 'false'
+    AllowedValues: ['true', 'false']
+    Description: Whether to create the RDS database
+  
+  MultiAZ:
+    Type: String
+    Default: 'false'
+    AllowedValues: ['true', 'false']
+    Description: Enable Multi-AZ deployment
+  
+  BackupRetentionPeriod:
+    Type: Number
+    Default: 7
+    Description: Backup retention period in days
+
+Conditions:
+  CreateRDS: !Equals [!Ref CreateDatabase, 'true']
+  EnableMultiAZ: !Equals [!Ref MultiAZ, 'true']
+
+Resources:
+  # DB Subnet Group
+  DBSubnetGroup:
+    Type: AWS::RDS::DBSubnetGroup
+    Condition: CreateRDS
+    Properties:
+      DBSubnetGroupName: !Sub '${Environment}-db-subnet-group'
+      DBSubnetGroupDescription: Subnet group for BOM RDS database
+      SubnetIds:
+        - Fn::ImportValue: !Sub '${NetworkStackName}-PrivateSubnet1aId'
+        - Fn::ImportValue: !Sub '${NetworkStackName}-PrivateSubnet1bId'
+      Tags:
+        - Key: Name
+          Value: !Sub '${Environment}-db-subnet-group'
+        - Key: Environment
+          Value: !Ref Environment
+        - Key: Project
+          Value: BOM-Infrastructure
+
+  # Security Group for RDS
+  DBSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Condition: CreateRDS
+    Properties:
+      GroupDescription: Security group for BOM RDS database
+      VpcId:
+        Fn::ImportValue: !Sub '${NetworkStackName}-VpcId'
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 3306
+          ToPort: 3306
+          SourceSecurityGroupId:
+            Fn::ImportValue: !Sub 'compute-stack-WebServerSecurityGroupId'
+          Description: MySQL access from web servers
+        - IpProtocol: tcp
+          FromPort: 3306
+          ToPort: 3306
+          CidrIp:
+            Fn::ImportValue: !Sub '${NetworkStackName}-VpcCidr'
+          Description: MySQL access from VPC
+      Tags:
+        - Key: Name
+          Value: !Sub '${Environment}-db-sg'
+        - Key: Environment
+          Value: !Ref Environment
+        - Key: Project
+          Value: BOM-Infrastructure
+
+  # RDS Parameter Group
+  DBParameterGroup:
+    Type: AWS::RDS::DBParameterGroup
+    Condition: CreateRDS
+    Properties:
+      Family: mysql8.0
+      Description: Parameter group for BOM MySQL database
+      Parameters:
+        innodb_buffer_pool_size: '{DBInstanceClassMemory*3/4}'
+        max_connections: 100
+        slow_query_log: 1
+        long_query_time: 2
+        general_log: 0
+      Tags:
+        - Key: Name
+          Value: !Sub '${Environment}-db-parameter-group'
+        - Key: Environment
+          Value: !Ref Environment
+        - Key: Project
+          Value: BOM-Infrastructure
+
+  # RDS Option Group
+  DBOptionGroup:
+    Type: AWS::RDS::OptionGroup
+    Condition: CreateRDS
+    Properties:
+      EngineName: mysql
+      MajorEngineVersion: '8.0'
+      OptionGroupDescription: Option group for BOM MySQL database
+      Tags:
+        - Key: Name
+          Value: !Sub '${Environment}-db-option-group'
+        - Key: Environment
+          Value: !Ref Environment
+        - Key: Project
+          Value: BOM-Infrastructure
+
+  # Secrets Manager Secret for DB Password
+  DBSecret:
+    Type: AWS::SecretsManager::Secret
+    Condition: CreateRDS
+    Properties:
+      Name: !Sub '${Environment}/rds/mysql/credentials'
+      Description: RDS MySQL database credentials
+      GenerateSecretString:
+        SecretStringTemplate: !Sub '{"username": "${DBUsername}"}'
+        GenerateStringKey: 'password'
+        PasswordLength: 32
+        ExcludeCharacters: '"@/\'
+      Tags:
+        - Key: Name
+          Value: !Sub '${Environment}-db-secret'
+        - Key: Environment
+          Value: !Ref Environment
+        - Key: Project
+          Value: BOM-Infrastructure
+
+  # RDS Database Instance
+  Database:
+    Type: AWS::RDS::DBInstance
+    Condition: CreateRDS
+    DeletionPolicy: Snapshot
+    Properties:
+      DBInstanceIdentifier: !Sub '${Environment}-app-database'
+      DBInstanceClass: !Ref DBInstanceClass
+      Engine: mysql
+      EngineVersion: '8.0.35'
+      AllocatedStorage: !Ref DBAllocatedStorage
+      StorageType: gp3
+      StorageEncrypted: true
+      
+      DBName: !Ref DBName
+      MasterUsername: !Ref DBUsername
+      ManageMasterUserPassword: true
+      MasterUserSecret:
+        SecretArn: !Ref DBSecret
+      
+      VPCSecurityGroups:
+        - !Ref DBSecurityGroup
+      DBSubnetGroupName: !Ref DBSubnetGroup
+      DBParameterGroupName: !Ref DBParameterGroup
+      OptionGroupName: !Ref DBOptionGroup
+      
+      MultiAZ: !Ref MultiAZ
+      PubliclyAccessible: false
+      
+      BackupRetentionPeriod: !Ref BackupRetentionPeriod
+      PreferredBackupWindow: '03:00-04:00'
+      PreferredMaintenanceWindow: 'sun:04:00-sun:05:00'
+      
+      EnablePerformanceInsights: true
+      PerformanceInsightsRetentionPeriod: 7
+      
+      MonitoringInterval: 60
+      MonitoringRoleArn: !GetAtt RDSEnhancedMonitoringRole.Arn
+      
+      DeletionProtection: true
+      
+      Tags:
+        - Key: Name
+          Value: !Sub '${Environment}-app-database'
+        - Key: Environment
+          Value: !Ref Environment
+        - Key: Project
+          Value: BOM-Infrastructure
+        - Key: BackupRequired
+          Value: 'true'
+
+  # IAM Role for RDS Enhanced Monitoring
+  RDSEnhancedMonitoringRole:
+    Type: AWS::IAM::Role
+    Condition: CreateRDS
+    Properties:
+      RoleName: !Sub 'BOM-RDS-Monitoring-Role-${Environment}'
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: monitoring.rds.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AmazonRDSEnhancedMonitoringRole
+      Tags:
+        - Key: Environment
+          Value: !Ref Environment
+        - Key: Project
+          Value: BOM-Infrastructure
+
+  # CloudWatch Log Group for RDS
+  DBLogGroup:
+    Type: AWS::Logs::LogGroup
+    Condition: CreateRDS
+    Properties:
+      LogGroupName: !Sub '/aws/rds/instance/${Environment}-app-database/error'
+      RetentionInDays: 30
+      Tags:
+        - Key: Environment
+          Value: !Ref Environment
+        - Key: Project
+          Value: BOM-Infrastructure
+
+  # RDS Proxy (optional, for connection pooling)
+  DBProxy:
+    Type: AWS::RDS::DBProxy
+    Condition: CreateRDS
+    Properties:
+      DBProxyName: !Sub '${Environment}-app-db-proxy'
+      EngineFamily: MYSQL
+      Auth:
+        - AuthScheme: SECRETS
+          SecretArn: !Ref DBSecret
+      RoleArn: !GetAtt DBProxyRole.Arn
+      VpcSubnetIds:
+        - Fn::ImportValue: !Sub '${NetworkStackName}-PrivateSubnet1aId'
+        - Fn::ImportValue: !Sub '${NetworkStackName}-PrivateSubnet1bId'
+      VpcSecurityGroupIds:
+        - !Ref DBSecurityGroup
+      RequireTLS: true
+      IdleClientTimeout: 1800
+      MaxConnectionsPercent: 100
+      MaxIdleConnectionsPercent: 50
+      Tags:
+        - Key: Name
+          Value: !Sub '${Environment}-app-db-proxy'
+        - Key: Environment
+          Value: !Ref Environment
+        - Key: Project
+          Value: BOM-Infrastructure
+
+  # RDS Proxy Target Group
+  DBProxyTargetGroup:
+    Type: AWS::RDS::DBProxyTargetGroup
+    Condition: CreateRDS
+    Properties:
+      DBProxyName: !Ref DBProxy
+      TargetGroupName: default
+      DBInstanceIdentifiers:
+        - !Ref Database
+
+  # IAM Role for RDS Proxy
+  DBProxyRole:
+    Type: AWS::IAM::Role
+    Condition: CreateRDS
+    Properties:
+      RoleName: !Sub 'BOM-RDS-Proxy-Role-${Environment}'
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: rds.amazonaws.com
+            Action: sts:AssumeRole
+      Policies:
+        - PolicyName: SecretsManagerAccess
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - secretsmanager:GetSecretValue
+                  - secretsmanager:DescribeSecret
+                Resource: !Ref DBSecret
+      Tags:
+        - Key: Environment
+          Value: !Ref Environment
+        - Key: Project
+          Value: BOM-Infrastructure
+
+Outputs:
+  DatabaseEndpoint:
+    Description: RDS Database Endpoint
+    Value: !If [CreateRDS, !GetAtt Database.Endpoint.Address, 'Not Created']
+    Export:
+      Name: !Sub '${AWS::StackName}-DatabaseEndpoint'
+
+  DatabasePort:
+    Description: RDS Database Port
+    Value: !If [CreateRDS, !GetAtt Database.Endpoint.Port, 'Not Created']
+    Export:
+      Name: !Sub '${AWS::StackName}-DatabasePort'
+
+  DatabaseName:
+    Description: Database Name
+    Value: !If [CreateRDS, !Ref DBName, 'Not Created']
+    Export:
+      Name: !Sub '${AWS::StackName}-DatabaseName'
+
+  DatabaseSecretArn:
+    Description: Database Secret ARN
+    Value: !If [CreateRDS, !Ref DBSecret, 'Not Created']
+    Export:
+      Name: !Sub '${AWS::StackName}-DatabaseSecretArn'
+
+  DBProxyEndpoint:
+    Description: RDS Proxy Endpoint
+    Value: !If [CreateRDS, !GetAtt DBProxy.Endpoint, 'Not Created']
+    Export:
+      Name: !Sub '${AWS::StackName}-DBProxyEndpoint'
+
+  DatabaseSecurityGroupId:
+    Description: Database Security Group ID
+    Value: !If [CreateRDS, !Ref DBSecurityGroup, 'Not Created']
+    Export:
+      Name: !Sub '${AWS::StackName}-DatabaseSecurityGroupId'
+
+  DatabaseSubnetGroupName:
+    Description: Database Subnet Group Name
+    Value: !If [CreateRDS, !Ref DBSubnetGroup, 'Not Created']
+    Export:
+      Name: !Sub '${AWS::StackName}-DatabaseSubnetGroupName'

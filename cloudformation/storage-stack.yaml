@@ -1,0 +1,249 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: 'BOM-driven Storage Infrastructure - S3 Buckets'
+
+Parameters:
+  Environment:
+    Type: String
+    Default: production
+    Description: Environment name for resource tagging
+  
+  BucketName:
+    Type: String
+    Default: ''
+    Description: S3 bucket name (leave empty for auto-generated name)
+  
+  CreateBucket:
+    Type: String
+    Default: 'true'
+    AllowedValues: ['true', 'false']
+    Description: Whether to create the S3 bucket
+  
+  EnableVersioning:
+    Type: String
+    Default: 'true'
+    AllowedValues: ['true', 'false']
+    Description: Enable S3 bucket versioning
+  
+  EnableEncryption:
+    Type: String
+    Default: 'true'
+    AllowedValues: ['true', 'false']
+    Description: Enable S3 bucket encryption
+
+Conditions:
+  CreateS3Bucket: !Equals [!Ref CreateBucket, 'true']
+  HasBucketName: !Not [!Equals [!Ref BucketName, '']]
+  EnableS3Versioning: !Equals [!Ref EnableVersioning, 'true']
+  EnableS3Encryption: !Equals [!Ref EnableEncryption, 'true']
+
+Resources:
+  # S3 Bucket for Application Storage
+  AppStorageBucket:
+    Type: AWS::S3::Bucket
+    Condition: CreateS3Bucket
+    Properties:
+      BucketName: !If 
+        - HasBucketName
+        - !Ref BucketName
+        - !Sub 'bom-app-storage-${Environment}-${AWS::AccountId}-${AWS::Region}'
+      VersioningConfiguration: !If
+        - EnableS3Versioning
+        - Status: Enabled
+        - !Ref 'AWS::NoValue'
+      BucketEncryption: !If
+        - EnableS3Encryption
+        - ServerSideEncryptionConfiguration:
+            - ServerSideEncryptionByDefault:
+                SSEAlgorithm: AES256
+              BucketKeyEnabled: true
+        - !Ref 'AWS::NoValue'
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+      LifecycleConfiguration:
+        Rules:
+          - Id: DeleteIncompleteMultipartUploads
+            Status: Enabled
+            AbortIncompleteMultipartUpload:
+              DaysAfterInitiation: 7
+          - Id: TransitionToIA
+            Status: Enabled
+            Transition:
+              StorageClass: STANDARD_IA
+              TransitionInDays: 30
+          - Id: TransitionToGlacier
+            Status: Enabled
+            Transition:
+              StorageClass: GLACIER
+              TransitionInDays: 90
+      NotificationConfiguration:
+        CloudWatchConfigurations:
+          - Event: s3:ObjectCreated:*
+            CloudWatchConfiguration:
+              LogGroupName: !Ref S3LogGroup
+      Tags:
+        - Key: Name
+          Value: !Sub '${Environment}-app-storage-bucket'
+        - Key: Environment
+          Value: !Ref Environment
+        - Key: Project
+          Value: BOM-Infrastructure
+        - Key: Purpose
+          Value: ApplicationStorage
+
+  # S3 Bucket Policy
+  AppStorageBucketPolicy:
+    Type: AWS::S3::BucketPolicy
+    Condition: CreateS3Bucket
+    Properties:
+      Bucket: !Ref AppStorageBucket
+      PolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Sid: DenyInsecureConnections
+            Effect: Deny
+            Principal: '*'
+            Action: 's3:*'
+            Resource:
+              - !Sub '${AppStorageBucket}/*'
+              - !Ref AppStorageBucket
+            Condition:
+              Bool:
+                'aws:SecureTransport': 'false'
+          - Sid: AllowEC2Access
+            Effect: Allow
+            Principal:
+              AWS: !Sub 'arn:aws:iam::${AWS::AccountId}:role/BOM-EC2-Role-${Environment}'
+            Action:
+              - 's3:GetObject'
+              - 's3:PutObject'
+              - 's3:DeleteObject'
+              - 's3:ListBucket'
+            Resource:
+              - !Sub '${AppStorageBucket}/*'
+              - !Ref AppStorageBucket
+
+  # CloudWatch Log Group for S3 events
+  S3LogGroup:
+    Type: AWS::Logs::LogGroup
+    Condition: CreateS3Bucket
+    Properties:
+      LogGroupName: !Sub '/aws/s3/${Environment}-app-storage'
+      RetentionInDays: 30
+      Tags:
+        - Key: Environment
+          Value: !Ref Environment
+        - Key: Project
+          Value: BOM-Infrastructure
+
+  # IAM Role for S3 access from applications
+  S3AccessRole:
+    Type: AWS::IAM::Role
+    Condition: CreateS3Bucket
+    Properties:
+      RoleName: !Sub 'BOM-S3-Access-Role-${Environment}'
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: 
+                - ec2.amazonaws.com
+                - lambda.amazonaws.com
+            Action: sts:AssumeRole
+      Policies:
+        - PolicyName: S3AccessPolicy
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - 's3:GetObject'
+                  - 's3:PutObject'
+                  - 's3:DeleteObject'
+                  - 's3:ListBucket'
+                  - 's3:GetBucketLocation'
+                Resource:
+                  - !Sub '${AppStorageBucket}/*'
+                  - !Ref AppStorageBucket
+              - Effect: Allow
+                Action:
+                  - 'logs:CreateLogGroup'
+                  - 'logs:CreateLogStream'
+                  - 'logs:PutLogEvents'
+                Resource: !Sub 'arn:aws:logs:${AWS::Region}:${AWS::AccountId}:*'
+      Tags:
+        - Key: Environment
+          Value: !Ref Environment
+        - Key: Project
+          Value: BOM-Infrastructure
+
+  # S3 Access Point (optional, for advanced access control)
+  AppStorageAccessPoint:
+    Type: AWS::S3::AccessPoint
+    Condition: CreateS3Bucket
+    Properties:
+      Bucket: !Ref AppStorageBucket
+      Name: !Sub '${Environment}-app-access-point'
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+      Policy:
+        Version: '2012-10-17'
+        Statement:
+          - Sid: AllowApplicationAccess
+            Effect: Allow
+            Principal:
+              AWS: !GetAtt S3AccessRole.Arn
+            Action:
+              - 's3:GetObject'
+              - 's3:PutObject'
+              - 's3:DeleteObject'
+            Resource: !Sub 'arn:aws:s3:${AWS::Region}:${AWS::AccountId}:accesspoint/${Environment}-app-access-point/object/*'
+
+Outputs:
+  BucketName:
+    Description: S3 Bucket Name
+    Value: !If [CreateS3Bucket, !Ref AppStorageBucket, 'Not Created']
+    Export:
+      Name: !Sub '${AWS::StackName}-BucketName'
+
+  BucketArn:
+    Description: S3 Bucket ARN
+    Value: !If [CreateS3Bucket, !GetAtt AppStorageBucket.Arn, 'Not Created']
+    Export:
+      Name: !Sub '${AWS::StackName}-BucketArn'
+
+  BucketDomainName:
+    Description: S3 Bucket Domain Name
+    Value: !If [CreateS3Bucket, !GetAtt AppStorageBucket.DomainName, 'Not Created']
+    Export:
+      Name: !Sub '${AWS::StackName}-BucketDomainName'
+
+  BucketRegionalDomainName:
+    Description: S3 Bucket Regional Domain Name
+    Value: !If [CreateS3Bucket, !GetAtt AppStorageBucket.RegionalDomainName, 'Not Created']
+    Export:
+      Name: !Sub '${AWS::StackName}-BucketRegionalDomainName'
+
+  S3AccessRoleArn:
+    Description: S3 Access Role ARN
+    Value: !If [CreateS3Bucket, !GetAtt S3AccessRole.Arn, 'Not Created']
+    Export:
+      Name: !Sub '${AWS::StackName}-S3AccessRoleArn'
+
+  AccessPointArn:
+    Description: S3 Access Point ARN
+    Value: !If [CreateS3Bucket, !GetAtt AppStorageAccessPoint.Arn, 'Not Created']
+    Export:
+      Name: !Sub '${AWS::StackName}-AccessPointArn'
+
+  LogGroupName:
+    Description: CloudWatch Log Group Name
+    Value: !If [CreateS3Bucket, !Ref S3LogGroup, 'Not Created']
+    Export:
+      Name: !Sub '${AWS::StackName}-LogGroupName'

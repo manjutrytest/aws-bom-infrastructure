@@ -1,0 +1,144 @@
+# AWS BOM Infrastructure - Git Ignore File
+
+# Generated parameter files
+parameters/
+*.json
+
+# AWS CLI output
+aws-cli-output/
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+
+# Virtual environments
+venv/
+env/
+ENV/
+.venv/
+.env/
+
+# IDE files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# Logs
+*.log
+logs/
+
+# Temporary files
+tmp/
+temp/
+.tmp/
+
+# AWS credentials (should never be committed)
+.aws/
+credentials
+config
+
+# CloudFormation outputs
+stack-outputs/
+changeset-*.json
+
+# Backup files
+*.bak
+*.backup
+*.old
+
+# Local environment files
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# PowerShell execution policy files
+*.ps1xml
+
+# Windows
+desktop.ini
+
+# macOS
+.AppleDouble
+.LSOverride
+
+# Linux
+*~
+
+# Vim
+*.swp
+*.swo
+
+# Emacs
+*~
+\#*\#
+/.emacs.desktop
+/.emacs.desktop.lock
+*.elc
+auto-save-list
+tramp
+.\#*
+
+# Node.js (if using any Node tools)
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Terraform (if using Terraform alongside)
+*.tfstate
+*.tfstate.*
+.terraform/
+.terraform.lock.hcl
+
+# Ansible (if using Ansible alongside)
+*.retry
+
+# Docker (if using Docker)
+.dockerignore
+Dockerfile
+docker-compose.yml
+docker-compose.override.yml
+
+# Keep example files but ignore actual customer data
+!bom/customer-bom.csv
+!bom/staging-bom.csv
+bom/*-actual.csv
+bom/*-real.csv
+bom/*-prod.csv
+
+# Keep documentation
+!docs/
+!README.md
+!*.md

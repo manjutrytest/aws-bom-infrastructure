@@ -1,0 +1,326 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: 'BOM-driven Network Infrastructure - VPC, Subnets, Gateways'
+
+Parameters:
+  Environment:
+    Type: String
+    Default: production
+    Description: Environment name for resource tagging
+  
+  VpcCidr:
+    Type: String
+    Default: 10.0.0.0/16
+    Description: CIDR block for VPC
+  
+  PublicSubnet1aCidr:
+    Type: String
+    Default: 10.0.1.0/24
+    Description: CIDR block for public subnet in AZ 1a
+  
+  PublicSubnet1bCidr:
+    Type: String
+    Default: 10.0.2.0/24
+    Description: CIDR block for public subnet in AZ 1b
+  
+  PrivateSubnet1aCidr:
+    Type: String
+    Default: 10.0.10.0/24
+    Description: CIDR block for private subnet in AZ 1a
+  
+  PrivateSubnet1bCidr:
+    Type: String
+    Default: 10.0.20.0/24
+    Description: CIDR block for private subnet in AZ 1b
+  
+  CreateNatGateway:
+    Type: String
+    Default: 'true'
+    AllowedValues: ['true', 'false']
+    Description: Whether to create NAT Gateway for private subnets
+
+Conditions:
+  CreateNat: !Equals [!Ref CreateNatGateway, 'true']
+
+Resources:
+  # VPC
+  MainVPC:
+    Type: AWS::EC2::VPC
+    Properties:
+      CidrBlock: !Ref VpcCidr
+      EnableDnsHostnames: true
+      EnableDnsSupport: true
+      Tags:
+        - Key: Name
+          Value: !Sub '${Environment}-main-vpc'
+        - Key: Environment
+          Value: !Ref Environment
+        - Key: Project
+          Value: BOM-Infrastructure
+        - Key: Stack
+          Value: network
+
+  # Internet Gateway
+  InternetGateway:
+    Type: AWS::EC2::InternetGateway
+    Properties:
+      Tags:
+        - Key: Name
+          Value: !Sub '${Environment}-main-igw'
+        - Key: Environment
+          Value: !Ref Environment
+        - Key: Project
+          Value: BOM-Infrastructure
+
+  AttachGateway:
+    Type: AWS::EC2::VPCGatewayAttachment
+    Properties:
+      VpcId: !Ref MainVPC
+      InternetGatewayId: !Ref InternetGateway
+
+  # Public Subnets
+  PublicSubnet1a:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref MainVPC
+      CidrBlock: !Ref PublicSubnet1aCidr
+      AvailabilityZone: !Sub '${AWS::Region}a'
+      MapPublicIpOnLaunch: true
+      Tags:
+        - Key: Name
+          Value: !Sub '${Environment}-public-subnet-1a'
+        - Key: Environment
+          Value: !Ref Environment
+        - Key: Project
+          Value: BOM-Infrastructure
+        - Key: Type
+          Value: Public
+
+  PublicSubnet1b:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref MainVPC
+      CidrBlock: !Ref PublicSubnet1bCidr
+      AvailabilityZone: !Sub '${AWS::Region}b'
+      MapPublicIpOnLaunch: true
+      Tags:
+        - Key: Name
+          Value: !Sub '${Environment}-public-subnet-1b'
+        - Key: Environment
+          Value: !Ref Environment
+        - Key: Project
+          Value: BOM-Infrastructure
+        - Key: Type
+          Value: Public
+
+  # Private Subnets
+  PrivateSubnet1a:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref MainVPC
+      CidrBlock: !Ref PrivateSubnet1aCidr
+      AvailabilityZone: !Sub '${AWS::Region}a'
+      Tags:
+        - Key: Name
+          Value: !Sub '${Environment}-private-subnet-1a'
+        - Key: Environment
+          Value: !Ref Environment
+        - Key: Project
+          Value: BOM-Infrastructure
+        - Key: Type
+          Value: Private
+
+  PrivateSubnet1b:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref MainVPC
+      CidrBlock: !Ref PrivateSubnet1bCidr
+      AvailabilityZone: !Sub '${AWS::Region}b'
+      Tags:
+        - Key: Name
+          Value: !Sub '${Environment}-private-subnet-1b'
+        - Key: Environment
+          Value: !Ref Environment
+        - Key: Project
+          Value: BOM-Infrastructure
+        - Key: Type
+          Value: Private
+
+  # NAT Gateway (conditional)
+  NatGatewayEIP:
+    Type: AWS::EC2::EIP
+    Condition: CreateNat
+    DependsOn: AttachGateway
+    Properties:
+      Domain: vpc
+      Tags:
+        - Key: Name
+          Value: !Sub '${Environment}-nat-eip'
+        - Key: Environment
+          Value: !Ref Environment
+        - Key: Project
+          Value: BOM-Infrastructure
+
+  NatGateway:
+    Type: AWS::EC2::NatGateway
+    Condition: CreateNat
+    Properties:
+      AllocationId: !GetAtt NatGatewayEIP.AllocationId
+      SubnetId: !Ref PublicSubnet1a
+      Tags:
+        - Key: Name
+          Value: !Sub '${Environment}-nat-gateway-1a'
+        - Key: Environment
+          Value: !Ref Environment
+        - Key: Project
+          Value: BOM-Infrastructure
+
+  # Route Tables
+  PublicRouteTable:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId: !Ref MainVPC
+      Tags:
+        - Key: Name
+          Value: !Sub '${Environment}-public-rt'
+        - Key: Environment
+          Value: !Ref Environment
+        - Key: Project
+          Value: BOM-Infrastructure
+
+  PublicRoute:
+    Type: AWS::EC2::Route
+    DependsOn: AttachGateway
+    Properties:
+      RouteTableId: !Ref PublicRouteTable
+      DestinationCidrBlock: 0.0.0.0/0
+      GatewayId: !Ref InternetGateway
+
+  PublicSubnet1aRouteTableAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId: !Ref PublicSubnet1a
+      RouteTableId: !Ref PublicRouteTable
+
+  PublicSubnet1bRouteTableAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId: !Ref PublicSubnet1b
+      RouteTableId: !Ref PublicRouteTable
+
+  # Private Route Table
+  PrivateRouteTable:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId: !Ref MainVPC
+      Tags:
+        - Key: Name
+          Value: !Sub '${Environment}-private-rt'
+        - Key: Environment
+          Value: !Ref Environment
+        - Key: Project
+          Value: BOM-Infrastructure
+
+  PrivateRoute:
+    Type: AWS::EC2::Route
+    Condition: CreateNat
+    Properties:
+      RouteTableId: !Ref PrivateRouteTable
+      DestinationCidrBlock: 0.0.0.0/0
+      NatGatewayId: !Ref NatGateway
+
+  PrivateSubnet1aRouteTableAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId: !Ref PrivateSubnet1a
+      RouteTableId: !Ref PrivateRouteTable
+
+  PrivateSubnet1bRouteTableAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId: !Ref PrivateSubnet1b
+      RouteTableId: !Ref PrivateRouteTable
+
+  # Security Groups
+  DefaultSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Default security group for BOM infrastructure
+      VpcId: !Ref MainVPC
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 80
+          ToPort: 80
+          CidrIp: 0.0.0.0/0
+          Description: HTTP access
+        - IpProtocol: tcp
+          FromPort: 443
+          ToPort: 443
+          CidrIp: 0.0.0.0/0
+          Description: HTTPS access
+        - IpProtocol: tcp
+          FromPort: 22
+          ToPort: 22
+          CidrIp: !Ref VpcCidr
+          Description: SSH access from VPC
+      Tags:
+        - Key: Name
+          Value: !Sub '${Environment}-default-sg'
+        - Key: Environment
+          Value: !Ref Environment
+        - Key: Project
+          Value: BOM-Infrastructure
+
+Outputs:
+  VpcId:
+    Description: VPC ID
+    Value: !Ref MainVPC
+    Export:
+      Name: !Sub '${AWS::StackName}-VpcId'
+
+  VpcCidr:
+    Description: VPC CIDR Block
+    Value: !Ref VpcCidr
+    Export:
+      Name: !Sub '${AWS::StackName}-VpcCidr'
+
+  PublicSubnet1aId:
+    Description: Public Subnet 1a ID
+    Value: !Ref PublicSubnet1a
+    Export:
+      Name: !Sub '${AWS::StackName}-PublicSubnet1aId'
+
+  PublicSubnet1bId:
+    Description: Public Subnet 1b ID
+    Value: !Ref PublicSubnet1b
+    Export:
+      Name: !Sub '${AWS::StackName}-PublicSubnet1bId'
+
+  PrivateSubnet1aId:
+    Description: Private Subnet 1a ID
+    Value: !Ref PrivateSubnet1a
+    Export:
+      Name: !Sub '${AWS::StackName}-PrivateSubnet1aId'
+
+  PrivateSubnet1bId:
+    Description: Private Subnet 1b ID
+    Value: !Ref PrivateSubnet1b
+    Export:
+      Name: !Sub '${AWS::StackName}-PrivateSubnet1bId'
+
+  DefaultSecurityGroupId:
+    Description: Default Security Group ID
+    Value: !Ref DefaultSecurityGroup
+    Export:
+      Name: !Sub '${AWS::StackName}-DefaultSecurityGroupId'
+
+  InternetGatewayId:
+    Description: Internet Gateway ID
+    Value: !Ref InternetGateway
+    Export:
+      Name: !Sub '${AWS::StackName}-InternetGatewayId'
+
+  NatGatewayId:
+    Description: NAT Gateway ID
+    Value: !If [CreateNat, !Ref NatGateway, 'Not Created']
+    Export:
+      Name: !Sub '${AWS::StackName}-NatGatewayId'

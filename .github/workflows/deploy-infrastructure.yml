@@ -1,0 +1,388 @@
+name: Deploy BOM-driven AWS Infrastructure
+
+on:
+  workflow_dispatch:
+    inputs:
+      bom_file:
+        description: 'Path to BOM CSV file'
+        required: true
+        default: 'bom/customer-bom.csv'
+      environment:
+        description: 'Target environment'
+        required: true
+        default: 'production'
+        type: choice
+        options:
+          - production
+          - staging
+          - development
+      dry_run:
+        description: 'Dry run (create change sets only)'
+        required: false
+        default: false
+        type: boolean
+
+env:
+  AWS_REGION: eu-north-1
+  AWS_ACCOUNT_ID: 588681235095
+
+permissions:
+  id-token: write
+  contents: read
+  pull-requests: write
+  issues: write
+
+jobs:
+  validate-bom:
+    name: Validate BOM File
+    runs-on: ubuntu-latest
+    outputs:
+      deployment-manifest: ${{ steps.parse-bom.outputs.manifest }}
+      
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+      
+      - name: Setup Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+      
+      - name: Validate BOM File Exists
+        run: |
+          if [ ! -f "${{ github.event.inputs.bom_file }}" ]; then
+            echo "❌ BOM file not found: ${{ github.event.inputs.bom_file }}"
+            exit 1
+          fi
+          echo "✅ BOM file found: ${{ github.event.inputs.bom_file }}"
+      
+      - name: Parse and Validate BOM
+        id: parse-bom
+        run: |
+          python scripts/parse-bom.py "${{ github.event.inputs.bom_file }}" --output-dir parameters
+          
+          # Read deployment manifest
+          if [ -f "parameters/deployment-manifest.json" ]; then
+            echo "manifest=$(cat parameters/deployment-manifest.json | jq -c .)" >> $GITHUB_OUTPUT
+          else
+            echo "❌ Failed to generate deployment manifest"
+            exit 1
+          fi
+      
+      - name: Upload Parameter Files
+        uses: actions/upload-artifact@v4
+        with:
+          name: cloudformation-parameters
+          path: parameters/
+          retention-days: 30
+
+  configure-aws:
+    name: Configure AWS Credentials
+    runs-on: ubuntu-latest
+    needs: validate-bom
+    outputs:
+      role-arn: ${{ steps.aws-config.outputs.role-arn }}
+      
+    steps:
+      - name: Configure AWS Credentials
+        id: aws-config
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: arn:aws:iam::${{ env.AWS_ACCOUNT_ID }}:role/GitHubActionsBOMCloudFormationRole
+          role-session-name: BOM-Infrastructure-Deployment
+          aws-region: ${{ env.AWS_REGION }}
+          output-credentials: true
+      
+      - name: Verify AWS Access
+        run: |
+          echo "✅ AWS Account ID: $(aws sts get-caller-identity --query Account --output text)"
+          echo "✅ AWS Region: ${{ env.AWS_REGION }}"
+          echo "✅ Assumed Role: $(aws sts get-caller-identity --query Arn --output text)"
+
+  create-change-sets:
+    name: Create CloudFormation Change Sets
+    runs-on: ubuntu-latest
+    needs: [validate-bom, configure-aws]
+    strategy:
+      matrix:
+        stack: ${{ fromJson(needs.validate-bom.outputs.deployment-manifest).deployment_order }}
+      fail-fast: false
+    
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+      
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: arn:aws:iam::${{ env.AWS_ACCOUNT_ID }}:role/GitHubActionsBOMCloudFormationRole
+          role-session-name: BOM-ChangeSet-${{ matrix.stack }}
+          aws-region: ${{ env.AWS_REGION }}
+      
+      - name: Download Parameter Files
+        uses: actions/download-artifact@v4
+        with:
+          name: cloudformation-parameters
+          path: parameters/
+      
+      - name: Create Change Set
+        id: changeset
+        run: |
+          STACK_NAME="${{ matrix.stack }}-${{ github.event.inputs.environment }}"
+          TEMPLATE_FILE="cloudformation/${{ matrix.stack }}.yaml"
+          PARAMETERS_FILE="parameters/${{ matrix.stack }}-parameters.json"
+          CHANGESET_NAME="changeset-$(date +%Y%m%d-%H%M%S)"
+          
+          echo "Creating change set for stack: $STACK_NAME"
+          
+          # Check if stack exists
+          if aws cloudformation describe-stacks --stack-name "$STACK_NAME" >/dev/null 2>&1; then
+            CHANGESET_TYPE="UPDATE"
+            echo "Stack exists, creating UPDATE change set"
+          else
+            CHANGESET_TYPE="CREATE"
+            echo "Stack does not exist, creating CREATE change set"
+          fi
+          
+          # Create change set
+          aws cloudformation create-change-set \
+            --stack-name "$STACK_NAME" \
+            --template-body file://"$TEMPLATE_FILE" \
+            --parameters file://"$PARAMETERS_FILE" \
+            --change-set-name "$CHANGESET_NAME" \
+            --change-set-type "$CHANGESET_TYPE" \
+            --capabilities CAPABILITY_NAMED_IAM \
+            --tags \
+              Key=Project,Value=BOM-Infrastructure \
+              Key=Environment,Value=${{ github.event.inputs.environment }} \
+              Key=DeployedBy,Value=GitHub-Actions \
+              Key=Repository,Value=${{ github.repository }} \
+              Key=Commit,Value=${{ github.sha }}
+          
+          # Wait for change set creation
+          echo "Waiting for change set creation..."
+          aws cloudformation wait change-set-create-complete \
+            --stack-name "$STACK_NAME" \
+            --change-set-name "$CHANGESET_NAME"
+          
+          # Describe change set
+          echo "Change set created successfully:"
+          aws cloudformation describe-change-set \
+            --stack-name "$STACK_NAME" \
+            --change-set-name "$CHANGESET_NAME" \
+            --query 'Changes[].{Action:Action,ResourceType:ResourceChange.ResourceType,LogicalId:ResourceChange.LogicalResourceId,Replacement:ResourceChange.Replacement}' \
+            --output table
+          
+          # Save change set info
+          echo "stack-name=$STACK_NAME" >> $GITHUB_OUTPUT
+          echo "changeset-name=$CHANGESET_NAME" >> $GITHUB_OUTPUT
+          echo "changeset-type=$CHANGESET_TYPE" >> $GITHUB_OUTPUT
+      
+      - name: Upload Change Set Summary
+        run: |
+          STACK_NAME="${{ steps.changeset.outputs.stack-name }}"
+          CHANGESET_NAME="${{ steps.changeset.outputs.changeset-name }}"
+          
+          # Generate change set summary
+          aws cloudformation describe-change-set \
+            --stack-name "$STACK_NAME" \
+            --change-set-name "$CHANGESET_NAME" \
+            --output json > "changeset-${{ matrix.stack }}.json"
+        
+      - name: Upload Change Set Artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: changeset-${{ matrix.stack }}
+          path: changeset-${{ matrix.stack }}.json
+          retention-days: 30
+
+  manual-approval:
+    name: Manual Approval Required
+    runs-on: ubuntu-latest
+    needs: [validate-bom, create-change-sets]
+    environment: 
+      name: ${{ github.event.inputs.environment }}
+      url: https://console.aws.amazon.com/cloudformation/home?region=${{ env.AWS_REGION }}
+    
+    steps:
+      - name: Download All Change Sets
+        uses: actions/download-artifact@v4
+        with:
+          pattern: changeset-*
+          merge-multiple: true
+      
+      - name: Display Deployment Summary
+        run: |
+          echo "## 🚀 BOM Infrastructure Deployment Summary" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Environment:** ${{ github.event.inputs.environment }}" >> $GITHUB_STEP_SUMMARY
+          echo "**Region:** ${{ env.AWS_REGION }}" >> $GITHUB_STEP_SUMMARY
+          echo "**BOM File:** ${{ github.event.inputs.bom_file }}" >> $GITHUB_STEP_SUMMARY
+          echo "**Dry Run:** ${{ github.event.inputs.dry_run }}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          
+          echo "### 📋 Change Sets Created:" >> $GITHUB_STEP_SUMMARY
+          for file in changeset-*.json; do
+            if [ -f "$file" ]; then
+              stack=$(echo "$file" | sed 's/changeset-\(.*\)\.json/\1/')
+              changes=$(jq -r '.Changes | length' "$file")
+              echo "- **$stack**: $changes changes" >> $GITHUB_STEP_SUMMARY
+            fi
+          done
+          
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### ⚠️ Important Notes:" >> $GITHUB_STEP_SUMMARY
+          echo "- Review all change sets carefully before approval" >> $GITHUB_STEP_SUMMARY
+          echo "- Deployment will proceed in the correct dependency order" >> $GITHUB_STEP_SUMMARY
+          echo "- All resources will be tagged with project metadata" >> $GITHUB_STEP_SUMMARY
+          echo "- Rollback will be automatic on failure" >> $GITHUB_STEP_SUMMARY
+      
+      - name: Wait for Manual Approval
+        run: |
+          echo "✅ Change sets created successfully"
+          echo "⏳ Waiting for manual approval to proceed with deployment..."
+          echo "🔍 Review the change sets in the AWS Console before approving"
+
+  deploy-stacks:
+    name: Deploy CloudFormation Stacks
+    runs-on: ubuntu-latest
+    needs: [validate-bom, manual-approval]
+    if: ${{ !cancelled() && github.event.inputs.dry_run != 'true' }}
+    strategy:
+      matrix:
+        stack: ${{ fromJson(needs.validate-bom.outputs.deployment-manifest).deployment_order }}
+      fail-fast: true
+      max-parallel: 1  # Deploy stacks sequentially to respect dependencies
+    
+    steps:
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: arn:aws:iam::${{ env.AWS_ACCOUNT_ID }}:role/GitHubActionsBOMCloudFormationRole
+          role-session-name: BOM-Deploy-${{ matrix.stack }}
+          aws-region: ${{ env.AWS_REGION }}
+      
+      - name: Execute Change Set
+        id: deploy
+        run: |
+          STACK_NAME="${{ matrix.stack }}-${{ github.event.inputs.environment }}"
+          
+          # Find the latest change set
+          CHANGESET_NAME=$(aws cloudformation list-change-sets \
+            --stack-name "$STACK_NAME" \
+            --query 'Summaries[0].ChangeSetName' \
+            --output text)
+          
+          if [ "$CHANGESET_NAME" = "None" ] || [ -z "$CHANGESET_NAME" ]; then
+            echo "❌ No change set found for stack: $STACK_NAME"
+            exit 1
+          fi
+          
+          echo "Executing change set: $CHANGESET_NAME for stack: $STACK_NAME"
+          
+          # Execute change set
+          aws cloudformation execute-change-set \
+            --stack-name "$STACK_NAME" \
+            --change-set-name "$CHANGESET_NAME"
+          
+          # Wait for stack operation to complete
+          echo "Waiting for stack operation to complete..."
+          
+          # Determine wait condition based on change set type
+          CHANGESET_TYPE=$(aws cloudformation describe-change-set \
+            --stack-name "$STACK_NAME" \
+            --change-set-name "$CHANGESET_NAME" \
+            --query 'ChangeSetType' \
+            --output text)
+          
+          if [ "$CHANGESET_TYPE" = "CREATE" ]; then
+            aws cloudformation wait stack-create-complete --stack-name "$STACK_NAME"
+          else
+            aws cloudformation wait stack-update-complete --stack-name "$STACK_NAME"
+          fi
+          
+          echo "✅ Stack operation completed successfully: $STACK_NAME"
+          
+          # Get stack outputs
+          aws cloudformation describe-stacks \
+            --stack-name "$STACK_NAME" \
+            --query 'Stacks[0].Outputs' \
+            --output table
+      
+      - name: Handle Deployment Failure
+        if: failure()
+        run: |
+          STACK_NAME="${{ matrix.stack }}-${{ github.event.inputs.environment }}"
+          
+          echo "❌ Deployment failed for stack: $STACK_NAME"
+          
+          # Get stack events for debugging
+          echo "Recent stack events:"
+          aws cloudformation describe-stack-events \
+            --stack-name "$STACK_NAME" \
+            --max-items 10 \
+            --query 'StackEvents[].{Time:Timestamp,Status:ResourceStatus,Reason:ResourceStatusReason,Resource:LogicalResourceId}' \
+            --output table
+          
+          # Check if rollback is in progress
+          STACK_STATUS=$(aws cloudformation describe-stacks \
+            --stack-name "$STACK_NAME" \
+            --query 'Stacks[0].StackStatus' \
+            --output text)
+          
+          if [[ "$STACK_STATUS" == *"ROLLBACK"* ]]; then
+            echo "Stack is rolling back automatically"
+            aws cloudformation wait stack-rollback-complete --stack-name "$STACK_NAME" || true
+          fi
+
+  deployment-summary:
+    name: Deployment Summary
+    runs-on: ubuntu-latest
+    needs: [validate-bom, deploy-stacks]
+    if: always()
+    
+    steps:
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: arn:aws:iam::${{ env.AWS_ACCOUNT_ID }}:role/GitHubActionsBOMCloudFormationRole
+          role-session-name: BOM-Summary
+          aws-region: ${{ env.AWS_REGION }}
+      
+      - name: Generate Deployment Report
+        run: |
+          echo "## 📊 BOM Infrastructure Deployment Report" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Deployment Time:** $(date -u '+%Y-%m-%d %H:%M:%S UTC')" >> $GITHUB_STEP_SUMMARY
+          echo "**Environment:** ${{ github.event.inputs.environment }}" >> $GITHUB_STEP_SUMMARY
+          echo "**Region:** ${{ env.AWS_REGION }}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          
+          echo "### 📋 Stack Status:" >> $GITHUB_STEP_SUMMARY
+          
+          # Check status of each stack
+          STACKS='${{ toJson(fromJson(needs.validate-bom.outputs.deployment-manifest).deployment_order) }}'
+          echo "$STACKS" | jq -r '.[]' | while read stack; do
+            STACK_NAME="${stack}-${{ github.event.inputs.environment }}"
+            
+            if aws cloudformation describe-stacks --stack-name "$STACK_NAME" >/dev/null 2>&1; then
+              STATUS=$(aws cloudformation describe-stacks \
+                --stack-name "$STACK_NAME" \
+                --query 'Stacks[0].StackStatus' \
+                --output text)
+              
+              if [[ "$STATUS" == *"COMPLETE"* ]]; then
+                echo "- ✅ **$stack**: $STATUS" >> $GITHUB_STEP_SUMMARY
+              else
+                echo "- ❌ **$stack**: $STATUS" >> $GITHUB_STEP_SUMMARY
+              fi
+            else
+              echo "- ⚠️ **$stack**: NOT FOUND" >> $GITHUB_STEP_SUMMARY
+            fi
+          done
+          
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### 🔗 Useful Links:" >> $GITHUB_STEP_SUMMARY
+          echo "- [AWS CloudFormation Console](https://console.aws.amazon.com/cloudformation/home?region=${{ env.AWS_REGION }})" >> $GITHUB_STEP_SUMMARY
+          echo "- [AWS EC2 Console](https://console.aws.amazon.com/ec2/home?region=${{ env.AWS_REGION }})" >> $GITHUB_STEP_SUMMARY
+          echo "- [AWS VPC Console](https://console.aws.amazon.com/vpc/home?region=${{ env.AWS_REGION }})" >> $GITHUB_STEP_SUMMARY
