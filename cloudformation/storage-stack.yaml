@@ -40,16 +40,12 @@ Resources:
         - HasBucketName
         - !Ref BucketName
         - !Sub 'bom-storage-${Environment}-${AWS::AccountId}'
-      VersioningConfiguration: !If
-        - EnableS3Versioning
-        - Status: Enabled
-        - !Ref 'AWS::NoValue'
-      BucketEncryption: !If
-        - EnableS3Encryption
-        - ServerSideEncryptionConfiguration:
-            - ServerSideEncryptionByDefault:
-                SSEAlgorithm: AES256
-        - !Ref 'AWS::NoValue'
+      VersioningConfiguration:
+        Status: !If [EnableS3Versioning, Enabled, Suspended]
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+          - ServerSideEncryptionByDefault:
+              SSEAlgorithm: AES256
       PublicAccessBlockConfiguration:
         BlockPublicAcls: true
         BlockPublicPolicy: true

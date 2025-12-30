@@ -131,6 +131,14 @@ jobs:
             echo "✅ Failed stack deleted successfully"
           fi
           
+          # Validate template first
+          echo "🔍 Validating CloudFormation template..."
+          aws cloudformation validate-template --template-body file://cloudformation/storage-stack.yaml --region ${{ env.AWS_REGION }}
+          
+          # Show parameters being used
+          echo "📋 Parameters being used:"
+          cat parameters/storage-stack-parameters.json
+          
           # Deploy the stack
           aws cloudformation deploy \
             --template-file cloudformation/storage-stack.yaml \
@@ -141,7 +149,13 @@ jobs:
             --tags Key=Project,Value=BOM-Infrastructure Key=Environment,Value=${{ github.event.inputs.environment }} \
             --no-fail-on-empty-changeset
           
-          echo "✅ Storage stack deployment completed"
+          # If deployment fails, show stack events
+          if [ $? -ne 0 ]; then
+            echo "❌ Deployment failed. Showing stack events:"
+            aws cloudformation describe-stack-events --stack-name "$STACK_NAME" --region ${{ env.AWS_REGION }} --query 'StackEvents[0:10].[Timestamp,ResourceStatus,ResourceType,LogicalResourceId,ResourceStatusReason]' --output table
+          else
+            echo "✅ Storage stack deployment completed"
+          fi
       
       - name: Show Deployment Results
         run: |

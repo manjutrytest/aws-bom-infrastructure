@@ -8,6 +8,7 @@ import csv
 import json
 import os
 import sys
+import hashlib
 
 def read_bom_csv(file_path):
     """Read BOM CSV file and return enabled resources"""
@@ -115,8 +116,12 @@ def create_storage_parameters(resources, environment):
     for resource in resources:
         if resource['resource_type'] == 's3':
             params[1]["ParameterValue"] = "true"  # CreateBucket
-            bucket_name = f"bom-{resource['resource_name']}-{environment}-588681235095"
-            params[4]["ParameterValue"] = bucket_name.lower().replace('_', '-')
+            # Create a shorter, unique bucket name
+            resource_name = resource['resource_name'].replace('_', '-').replace('storage-bucket', 'storage')
+            # Add a hash suffix to ensure uniqueness
+            name_hash = hashlib.md5(f"{resource_name}-{environment}".encode()).hexdigest()[:8]
+            bucket_name = f"bom-{resource_name}-{environment}-{name_hash}"
+            params[4]["ParameterValue"] = bucket_name.lower()
             break
     
     return params
